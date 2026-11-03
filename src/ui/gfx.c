@@ -352,6 +352,9 @@ void gfx_rect(float x, float y, float w, float h, uint32_t c) { if (invisible(c)
 void gfx_rrect(float x, float y, float w, float h, float r, uint32_t c) { if (invisible(c) || clipped_out(x, y, w, h)) return;
   if (r <= 0) { plain(x, y, w, h, c, c, c, c); return; }
   if (!nine(CK_FILL, x, y, w, h, r, 0, 0, c, c, c, c)) quad(P_SHAPE, 0, x, y, w, h, r, 0, 0, 1, c, c, c, c, 0, 0, 1, 1); }
+void gfx_hole(float x, float y, float w, float h, float r, float a) { if (a <= 0.001f || clipped_out(x, y, w, h)) return; gfx_flush();
+  glBlendFuncSeparate(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA); uint32_t c = RGBA(255, 255, 255, (int)(255 * a)); /* (the shape program always blends; a plain fill may not) */
+  quad(P_SHAPE, 0, x, y, w, h, r, 0, 0, 1, c, c, c, c, 0, 0, 1, 1); gfx_flush(); glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA); }
 void gfx_rrect_v(float x, float y, float w, float h, float r, uint32_t t, uint32_t b) { if ((invisible(t) && invisible(b)) || clipped_out(x, y, w, h)) return;
   if (r <= 0) { plain(x, y, w, h, t, t, b, b); return; }
   if (!nine(CK_FILL, x, y, w, h, r, 0, 0, t, t, b, b)) quad(P_SHAPE, 0, x, y, w, h, r, 0, 0, 1, t, t, b, b, 0, 0, 1, 1); }

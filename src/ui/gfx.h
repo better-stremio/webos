@@ -40,6 +40,7 @@ void gfx_rect(float x, float y, float w, float h, uint32_t color);
 void gfx_rrect(float x, float y, float w, float h, float radius, uint32_t color);
 void gfx_rrect_v(float x, float y, float w, float h, float radius, uint32_t top, uint32_t bottom); /* vertical gradient */
 void gfx_rrect_h(float x, float y, float w, float h, float radius, uint32_t left, uint32_t right);
+void gfx_hole(float x, float y, float w, float h, float radius, float a); /* the window made see-through there by a (0..1): the video plane under it shows */
 void gfx_ring(float x, float y, float w, float h, float radius, float thickness, uint32_t color);  /* outline, drawn inside */
 void gfx_ring_out(float x, float y, float w, float h, float radius, float thickness, uint32_t color); /* outline outside the rect */
 void gfx_shadow(float x, float y, float w, float h, float radius, float blur, uint32_t color);

@@ -530,7 +530,7 @@ static int aud_bad(const VidTrack *t) {
 static int aud_list(VidTrack *ts, int max) {
   int n = video_audio_tracks(ts, max); if (!n || !mkv_listed(mkv)) return n;
   MkvAudio ma[16]; int m = mkv_audio_tracks(mkv, ma, 16);
-  if (m == n) for (int i = 0; i < n; i++) if (!ts[i].codec[0]) { snprintf(ts[i].codec, sizeof ts[i].codec, "%s", ma[i].codec); if (!ts[i].channels) ts[i].channels = ma[i].channels; }
+  if (m == n) for (int i = 0; i < n; i++) { if (!ts[i].lang[0]) snprintf(ts[i].lang, sizeof ts[i].lang, "%s", ma[i].lang); /* the TV names no language: the file does */ if (!ts[i].codec[0]) { snprintf(ts[i].codec, sizeof ts[i].codec, "%s", ma[i].codec); if (!ts[i].channels) ts[i].channels = ma[i].channels; } }
   return n;
 }
 static void aud_label(const VidTrack *t, char *out, size_t cap) { /* "AC3 5.1" */
@@ -538,7 +538,7 @@ static void aud_label(const VidTrack *t, char *out, size_t cap) { /* "AC3 5.1" *
   int ch = t->channels; snprintf(out, cap, "%s%s", c, ch == 6 ? " 5.1" : ch == 8 ? " 7.1" : ch == 2 ? " 2.0" : ch == 1 ? " 1.0" : "");
 }
 static void auto_audio(void) {
-  if (P.autoAudDone || strcmp(store_get("enableDefaultAudioTrack", "false"), "true")) return; const char *want = store_get("defaultAudioTrack", ""); if (!*want) return;
+  if (P.autoAudDone || P.curAud >= 0 || strcmp(store_get("enableDefaultAudioTrack", "true"), "true")) return; const char *want = store_get("defaultAudioTrack", "eng"); if (!*want) return; /* (a track picked by hand stays) */
   VidTrack ts[16]; int n = aud_list(ts, 16); if (!n) return; int pick = -1;
   for (int i = 0; i < n; i++) if (lang_match(ts[i].lang, want) && (pick < 0 || (aud_bad(&ts[pick]) && !aud_bad(&ts[i])))) pick = i; /* in that language, one whose sound plays here first */
   if (pick < 0 && strcmp(want, "eng")) for (int i = 0; i < n; i++) if (lang_match(ts[i].lang, "eng") && (pick < 0 || (aud_bad(&ts[pick]) && !aud_bad(&ts[i])))) pick = i; /* not in the file: English, when the file has it */
@@ -582,7 +582,7 @@ static int mkv_aud_bad(const MkvAudio *a) { VidTrack v; memset(&v, 0, sizeof v);
    one this TV can't decode gives way to one it plays in the same language, else it is converted. -1 none fits */
 static int dv7_audio(int *copy) {
   MkvAudio ma[16]; int m = mkv_audio_tracks(mkv, ma, 16), pick = -1; if (!m) return -1;
-  const char *want = !strcmp(store_get("enableDefaultAudioTrack", "false"), "true") ? store_get("defaultAudioTrack", "") : "";
+  const char *want = !strcmp(store_get("enableDefaultAudioTrack", "true"), "true") ? store_get("defaultAudioTrack", "eng") : "";
   for (int i = 0; i < m && pick < 0; i++) if (*want && lang_match(ma[i].lang, want)) pick = i;
   for (int i = 0; i < m && pick < 0; i++) if (ma[i].def) pick = i;
   if (pick < 0) pick = 0;
@@ -674,7 +674,7 @@ static void dts_tick(void) {
   if (kind == 1 && !unsup && !best_dts_mode() && best_learned("dts") < 0 && video_state() == VID_PLAYING) { if (!P.dts.playAt) P.dts.playAt = now_(); else if (now_() - P.dts.playAt >= 3) { best_learn("dts", 1); fprintf(stderr, "[dts] auto: this TV plays DTS itself\n"); } }
   else P.dts.playAt = 0;
   if (!unsup && !aud_bad(t)) return;
-  const char *want = !strcmp(store_get("enableDefaultAudioTrack", "false"), "true") ? store_get("defaultAudioTrack", "") : "";
+  const char *want = !strcmp(store_get("enableDefaultAudioTrack", "true"), "true") ? store_get("defaultAudioTrack", "eng") : "";
   int pick = -1, score = -1;
   for (int i = 0; i < n && P.dts.switches < 4; i++) { if (i == ci || aud_bad(&ts[i])) continue; /* (tracks the TV doesn't name: a few tries at most) */
     int sc = (*want && lang_match(ts[i].lang, want)) ? 2 : (t->lang[0] && !strcasecmp(ts[i].lang, t->lang)) ? 1 : 0; if (sc > score) { score = sc; pick = i; } }
@@ -1855,6 +1855,7 @@ void player_tick(float dt) {
   if (P.started && !P.ldd && dur() > 0) P.ldd = 1; /* the length is known: the loading line fades before the picture comes */
   /* the art stays until the picture really runs: the resume jump is made behind it, and it fades only once playing has
      been steady for a moment (never a frozen first frame, then a spinner) */
+  if (P.liveT0 && !P.autoAudDone && now_() - P.liveT0 < 20) { static double audAt; if (now_() - audAt > 0.5) { audAt = now_(); auto_audio(); } } /* the TV can list its tracks after the picture starts */
   if (!P.live && video_live()) {
     if (!P.liveT0) { P.liveT0 = now_(); P.steadyAt = 0; apply_aspect(); try_resume(); auto_audio(); load_emb_tracks(); }
     int steady = (video_state() == VID_PLAYING || paused()) && !video_settling(); if (!steady) P.steadyAt = 0; else if (!P.steadyAt) P.steadyAt = now_();

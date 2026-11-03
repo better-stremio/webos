@@ -14,6 +14,7 @@ void plat_pre_init(const char *appId) { (void)appId;
   applog_start(dataDir); /* the terminal keeps every line; the kept log gets them too */
 }
 void plat_post_window(SDL_Window *w) { (void)w; }
+void plat_cursor_visible(int on) { (void)on; }
 const char *plat_asset_dir(void) { return assetDir; }
 const char *plat_data_dir(void) { return dataDir; }
 void plat_window_size(int *w, int *h, Uint32 *flags) {

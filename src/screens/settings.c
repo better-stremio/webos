@@ -165,7 +165,7 @@ static void build(void) {
   set_s(&playBase[0], "seekStep", "Seek step", "How far Left / Right jumps in the player", SEEK, 5, "10");
   set_s(&playBase[1], "bingeWatch", "Auto-play next episode", "When an episode ends, the next one starts", OO, 2, "true");
   set_s(&playBase[2], "aspectMode", "Picture size", "Original, fill the screen or zoom", ASPECT, 3, "fit");
-  set_s(&playBase[3], "bgTrailer", "Background trailers", "A trailer plays behind Home after a few seconds", OO, 2, "true");
+  set_s(&playBase[3], "bgTrailer", "Background trailers", "A trailer plays in the focused card after a few seconds", OO, 2, "true");
   set_s(&playBase[4], "autoBest", "Play the best stream automatically", "", OO, 2, "false");
   set_s(&playBase[7], "dv7Convert", "Dolby Vision for Blu-ray copies", "Their picture is converted on this TV so it shows in Dolby Vision, not HDR10", OO, 2, "true");
   set_s(&playBase[6], "bgTrailerVol", "Volume", "The sound comes up softly to this level", SVOL, 10, "70"); playBase[6].sub = 1; /* (shown right under the trailers while they are on: play_layout; drawn as theirs, set in) */
@@ -176,10 +176,10 @@ static void build(void) {
   set_s(&subsS[3], "subsOutlineColor", "Outline", "", OUTL, 2, "#000000");
   set_s(&subsS[4], "subsBgStyle", "Background", "", BGS, 3, "0");
   set_s(&subsS[5], "subsAssStyle", "Styled subtitles", "Signs, fonts and effects as the film\xe2\x80\x99s own ASS / SSA subtitles draw them", ASSO, 2, "styled");
-  set_s(&audS[0], "enableDefaultAudioTrack", "Auto audio track", "Pick the audio language below when a film has several", OO, 2, "false");
+  set_s(&audS[0], "enableDefaultAudioTrack", "Auto audio track", "Pick the audio language below when a film has several", OO, 2, "true");
   set_s(&audS[1], "defaultAudioTrack", "Default audio language", "", LANG_OPTS + 1, 17, "eng");
   set_s(&audS[2], "dtsMode", "DTS sound", "Auto finds out what this TV plays. Convert if you are not sure. Off leaves it to the TV", DTSM, 3, "auto");
-  set_s(&audS[3], "uiSound", "Interface sounds", "A soft click as you move between titles", OO, 2, "true");
+  set_s(&audS[3], "uiSound", "Interface sounds", "A soft click as you move between titles", OO, 2, "false");
   set_s(&audS[4], "uiSoundVol", "Interface sound level", "Of the TV\xe2\x80\x99s volume", SVOL, 10, "30");
   set_s(&lookS[0], "accent", "Accent colour", "Dynamic: the colours of the title you open", ACCENT_OPTS, 20, "logo"); /* first, right under its picture */
   set_s(&lookS[1], "ssDelay", "Screensaver", "After a while without a key, the titles of the moment fill the screen", SS_OPTS, 5, "5");

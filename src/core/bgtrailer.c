@@ -62,7 +62,7 @@ void bgt_tick(const BgtView *v) {
   if (st == S_GONE && t >= hiddenAt && (v->idle >= 0.7f || t - hiddenAt >= 4)) { st = S_OFF; if (H.unload) H.unload(H.ud); }
   if (t - lastCheck < 1) return;
   lastCheck = t;
-  int idle = v->idle > 5 && v->browsing && v->focused && !v->blocked;
+  int idle = v->idle > 3 && v->browsing && v->focused && !v->blocked;
   if (idle && !idleOn) { idleOn = 1; try_start(v); }
   else if (!idle && idleOn) { if (st == S_LOAD || st == S_SHOW) fprintf(stderr, "[btr] stop: idle %.1f s, board %d, focused %d, blocked %d\n", v->idle, v->browsing, v->focused != NULL, v->blocked); idleOn = 0; stop_soft(); }
 }

@@ -65,6 +65,7 @@ void plat_pre_init(const char *appId) {
   snprintf(devName, sizeof devName, "LG webOS %s", rel);
 }
 void plat_post_window(SDL_Window *w) { (void)w; }
+void plat_cursor_visible(int on) { static SDL_bool (*fn)(SDL_bool); static int asked; if (!asked) { asked = 1; *(void **)(&fn) = dlsym(RTLD_DEFAULT, "SDL_webOSCursorVisibility"); } if (fn) fn(on ? SDL_TRUE : SDL_FALSE); } /* (not on every firmware) */
 const char *plat_asset_dir(void) { return assetDir; }
 const char *plat_data_dir(void) { return dataDir; }
 void plat_window_size(int *w, int *h, Uint32 *flags) { *w = 1920; *h = 1080; *flags = SDL_WINDOW_OPENGL; /* measured on a 43LK5900 (webOS 4.4): with SDL_WINDOW_FULLSCREEN the compositor hands back a 1280x720 surface; without it, 1920x1080 */

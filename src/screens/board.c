@@ -19,6 +19,7 @@
 #include "screens/player.h"
 #include "screens/lib.h"
 #include "screens/catgrid.h"
+#include "core/store.h"
 #include "core/colstore.h"
 #include "core/httpd.h"
 
@@ -44,7 +45,7 @@ typedef struct { char title[96]; ItemList items; int col, wide, label, hidden, c
   /* a catalog that pages: where its next page starts (the items its addon sent so far), one page asked at a time */
   CatalogDef def; int hasDef, skipAt, more, paging; double pageAt;
   /* a collection's row: tiles, not titles (no Item, so no details, trailer or hold menu come near them) */
-  const ColFolder *tiles; int ntiles; } Row;
+  const ColFolder *tiles; int ntiles; int answered; } Row;
 #define NFEAT 8
 /* what the hero shows: put in while it is invisible, all together */
 typedef struct { char id[64], name[256], metaName[256], metaLine[96], desc[1024], logo[512]; int wait; unsigned sig; } HeroView;
@@ -57,6 +58,8 @@ typedef struct {
   Item feat[NFEAT]; int nfeat, featIdx, featOn, featLoad, featGotM, featGotS; ItemList featM, featS; double featAt;
   Tween spotY, rowsA, spotA, dotsA, dotW[NFEAT]; int heroSpot, dotsWant; double dotsGo; char scoped[64];
   Tween hostY; Timer1 fade; Nudge nudge;
+  /* the focused card opens after a rest (as Nuvio's): wider, its backdrop over its poster, then the trailer in it */
+  Tween exp; int expRow, expCol;
   double heroAt, fadeHold; int heroPending, fastBg; /* fadeHold: the fade-in waits (a moment at most) for the whole description */
   /* the hero, in one path: fade out, gather (details, translation, logo: 0.45 s at most), put in, fade in; anything
      better that arrives later comes in with one more fade */
@@ -80,6 +83,8 @@ static float step_of(const Row *r) { return card_w(r) + RGAP; }
 /* a row that pages ends, at SEEALL_AT titles at most, in a See All card (one place past its items: no Item, so the hero,
    the details and the hold menu never see it); the whole catalog is on the grid it opens */
 #define SEEALL_AT 60
+#define CARD_OPEN_AFTER 3.0f
+#define CARD_OPEN_W 800.0f /* 16:9 at a poster's height */
 static int see_all(const Row *r) { return r->hasDef && r->def.skip && r->items.n > 0 && !r->more; }
 static int col_last(const Row *r) { return r->ntiles ? r->ntiles - 1 : r->items.n - 1 + see_all(r); }
 static const ColFolder *tile_cur(const Board *b) { if (b->rowIdx < 0 || b->rowIdx >= b->n) return NULL; const Row *r = &b->rows[b->rowIdx]; return r->ntiles && r->col < r->ntiles ? &r->tiles[r->col] : NULL; }
@@ -105,6 +110,8 @@ static void board_cw_row(Board *b) {
 }
 /* a catalog answer finds its row through a packed token (board, row, generation): nothing to free */
 static void *tok(Board *b, int row) { return (void *)(uintptr_t)(((uintptr_t)(b - boards) << 28) | ((uintptr_t)(b->gen & 0x3fffff) << 6) | (uintptr_t)row); }
+static void col_search(Board *b);
+static int colPend, colSearched;
 static void on_catalog(ItemList *l, int cached, void *ud) {
   (void)cached; uintptr_t t = (uintptr_t)ud; Board *b = &boards[(t >> 28) & 3]; int row = t & 63; unsigned gen = (t >> 6) & 0x3fffff;
   if ((b->gen & 0x3fffff) != gen || row >= b->n) { itemlist_free(l); return; }
@@ -112,19 +119,27 @@ static void on_catalog(ItemList *l, int cached, void *ud) {
   r->skipAt = r->items.total > r->items.n ? r->items.total : r->items.n; r->more = r->hasDef && r->def.skip && r->items.n > 0; r->paging = 0;
   r->hidden = r->items.n == 0; if (r->col >= r->items.n) r->col = r->items.n ? r->items.n - 1 : 0;
   if (b->kind == 2 && !r->hidden && b->rows[b->rowIdx].hidden) b->rowIdx = row; /* (a tile's page: the focus waits on the first row that came) */
+  if (b->kind == 2 && !r->answered) { r->answered = 1; if (--colPend <= 0) { int any = 0; for (int i = 0; i < b->n && !any; i++) any = !b->rows[i].hidden; if (!any) col_search(b); } }
   if (cur() == b) { slide_row(r); b->heroPending = b->heroPending || (b->rowIdx == row); if (b->rowIdx == row && !b->heroPending) { b->heroAt = app_now(); b->heroPending = 1; } }
 }
 static int first_visible_row(Board *b, int from, int dir);
+/* every row of a tile's page came back empty, or none could be made (its addon is not installed, its lists are gone):
+   what the installed addons find under the tile's name, instead of an empty page. Once per page */
+static void col_search(Board *b) {
+  if (colSearched || !colFolder) return; colSearched = 1; static CatalogDef x[8]; int n = sb_search_defs(colFolder->title, x, 8);
+  for (int i = 0; i < n; i++) { char ti[96]; snprintf(ti, sizeof ti, "%s Â· %s", colFolder->title, !strcmp(x[i].type, "movie") ? T("Movies") : !strcmp(x[i].type, "series") ? T("Series") : x[i].title); Row *r = row_add(b, ti, 0, 0); if (!r) break; r->def = x[i]; r->hasDef = 1; colPend++; sb_catalog_url(x[i].url, x[i].type, 60, on_catalog, tok(b, (int)(r - b->rows))); }
+}
 /* a tile's page: a row per source of the tile, then the catalogs of any installed addon that carry its name */
 static void col_rows(Board *b, const ColFolder *f) {
-  for (int i = 0; i < b->n; i++) row_clear(&b->rows[i]); b->n = 0; b->gen++; b->rowIdx = 0; colAt = app_now(); if (!f) return;
+  for (int i = 0; i < b->n; i++) row_clear(&b->rows[i]); b->n = 0; b->gen++; b->rowIdx = 0; colAt = app_now(); colPend = 0; colSearched = 0; if (!f) return;
   static CatalogDef x[MAXROWS]; int nx = 0;
   for (int s = 0; s < f->nsrc && nx < MAXROWS; s++) { const ColSource *c = &f->src[s]; const char *ty = c->type; char ti[96], lb[24]; snprintf(lb, sizeof lb, "%s", !strcmp(ty, "movie") || !strcmp(ty, "movies") ? T("Movies") : !strcmp(ty, "series") ? T("Series") : ty); if (lb[0] >= 'a' && lb[0] <= 'z') lb[0] = (char)(lb[0] - 32);
     int same = 1; snprintf(ti, sizeof ti, "%s · %s", f->title, lb); for (int k = 0; k < nx; k++) if (!strncmp(x[k].title, ti, strlen(ti))) same++; if (same > 1) { char t2[96]; snprintf(t2, sizeof t2, "%.86s %d", ti, same); snprintf(ti, sizeof ti, "%s", t2); }
     if (sb_source_def(c->addonId, c->base, ty, c->catalog, c->genre, ti, &x[nx])) nx++; }
   CatalogDef named[12]; int nn = sb_name_defs(f->title, named, 12);
   for (int i = 0; i < nn && nx < MAXROWS; i++) { int dup = 0; for (int k = 0; k < nx && !dup; k++) dup = !strcmp(x[k].path, named[i].path); if (!dup) x[nx++] = named[i]; }
-  for (int i = 0; i < nx; i++) { Row *r = row_add(b, x[i].title, 0, 0); if (!r) break; r->def = x[i]; r->hasDef = 1; sb_catalog_url(x[i].url, x[i].type, 60, on_catalog, tok(b, (int)(r - b->rows))); }
+  colPend = nx; for (int i = 0; i < nx; i++) { Row *r = row_add(b, x[i].title, 0, 0); if (!r) break; r->def = x[i]; r->hasDef = 1; sb_catalog_url(x[i].url, x[i].type, 60, on_catalog, tok(b, (int)(r - b->rows))); }
+  if (!nx) col_search(b);
 }
 /* Home's collections, the pinned first */
 static void col_home_rows(Board *b) {
@@ -208,7 +223,7 @@ static void logo_src(const Item *it, char *out, size_t cap) { const TmdbLoc *L =
    rows next to it. Asked again every half second, so translated art that turns up later is fetched too and what
    is near stays recently used */
 static void logos_ahead(Board *b, int force) {
-  static double at[2]; double now = app_now(); int bi = (int)(b - boards); if (!force && now - at[bi] < 0.5) return; at[bi] = now;
+  static double at[3]; double now = app_now(); int bi = (int)(b - boards); if (!force && now - at[bi] < 0.5) return; at[bi] = now;
   char lu[512];
   for (int i = 0; i < b->nfeat; i++) { logo_src(&b->feat[i], lu, sizeof lu); if (lu[0]) img_prefetch_pri(lu, 520, 175); }
   for (int ri = b->rowIdx - 1; ri <= b->rowIdx + 2; ri++) { if (ri < 0 || ri >= b->n || b->rows[ri].hidden) continue; Row *r = &b->rows[ri];
@@ -437,7 +452,7 @@ static int board_key(Board *b, int k) {
     if (k == K_UP) { topnav_focus(); return 1; }
     if (k == K_OK) { const Item *it = focused_of(b); if (it) app_open_item(it); return 1; }
     return k != K_BACK; }
-  if (!b->n || b->rowIdx >= b->n) { if (k == K_UP) topnav_focus(); return 1; }
+  if (!b->n || b->rowIdx >= b->n) { if (k == K_UP) topnav_focus(); return k != K_BACK; } /* (no rows: Back still leaves) */
   Row *r = &b->rows[b->rowIdx];
   if (k == K_RIGHT) move_h(b, 1);
   else if (k == K_LEFT) move_h(b, -1);
@@ -453,8 +468,15 @@ static const Item *focused_cur(void) { Board *b = cur(); return b ? focused_of(b
 /* the pointer on a card: the highlight moves there, the row follows as for the arrows */
 static void card_focus(int r, int c) { Board *b = cur(); if (!b || r >= b->n) return; Row *row = &b->rows[r]; if (c > col_last(row)) return; int was = topNav.active; if (!was && !spotOn(b) && r == b->rowIdx && c == row->col) return;
   topNav.active = 0; if (spotOn(b)) spot_leave(b); if (r == b->rowIdx) { row->col = c; slide_row(row); } else { b->rowIdx = r; row->col = c; slide_row(row); } hero_soon(b, 150); row_more(b, r); }
+static void card_open_tick(Board *b, float dt) {
+  const Row *r = b->rowIdx < b->n ? &b->rows[b->rowIdx] : NULL; int here = r && r->col < r->items.n && focusOn(b) && !app_overlay && strcmp(store_get("bgTrailer", "true"), "false");
+  if (b->exp.v > 0.001f && (!here || b->expRow != b->rowIdx || b->expCol != r->col)) tween_set(&b->exp, 0); /* moved: shut at once, the row must not lag behind the remote */
+  if (here && app_trailer_idle() > CARD_OPEN_AFTER) { if (b->exp.to < 1) { b->expRow = b->rowIdx; b->expCol = r->col; tween_to(&b->exp, 1, 0.28f, EASE_STD); } } else if (b->exp.to > 0) tween_set(&b->exp, 0);
+  tween_tick(&b->exp, dt);
+}
 static void board_tick(float dt) {
   Board *b = cur(); if (!b) return;
+  card_open_tick(b, dt);
   timer_tick(&b->fade, dt); nudge_tick(&b->nudge, dt);
   if (b->kind == 1) { int sp = spotOn(b), hs = b->heroSet && b->heroSpot;
     /* the rows lower and dim with the spotlight's face (it changes while the hero is invisible); its dots come with it */
@@ -549,15 +571,16 @@ static void row_draw(Board *b, Row *r, int ri, float y, int near, float rowA) {
   if (ta < 1) gfx_opacity_pop();
   float cy = y + 18 + lh + 26, step = step_of(r), off = r->off.v, cw = card_w(r), ch = card_h(r);
   int i0 = (int)(off / step) - 1, i1 = (int)((off + SB_W - 48) / step) + 1; if (i0 < 0) i0 = 0; if (i1 > r->items.n - 1) i1 = r->items.n - 1;
+  float ek = active && ri == b->expRow && r->col == b->expCol && !r->ntiles ? b->exp.v : 0, ex = r->wide ? 0 : (CARD_OPEN_W - cw) * ek; /* the card open: this much wider; the ones after it make room */
   if (ca < 1) gfx_opacity_push(ca);
   prep_check(r); lift_fade(1 - melt); /* (no shadow or glass of its own over the trailer) */
   float rk = 1; int rem = b->remAt > 0 && ri == b->remRow && (rk = (float)((app_now() - b->remAt) / 0.38)) < 1; if (rem) rk = ease_apply(EASE_CSS_EASEOUT, rk); else if (ri == b->remRow) b->remAt = 0;
   if (rem) { float gx = 48 + b->remIdx * step - off; if (rtl) gx = SB_W - gx - cw; float s = 0.86f + 0.14f * (1 - rk); /* the one taken out: fading and shrinking where it was */
     gfx_opacity_push(1 - rk); gfx_scale_push(s, s, gx + cw / 2, cy + ch / 2); card_draw_wh(&b->remIt, gx, cy, cw, ch, r->wide, r->label, 0); gfx_scale_pop(); gfx_opacity_pop(); }
   for (int i = i0; i <= i1; i++) {
-    float x = 48 + i * step - off + (rem && i >= b->remIdx ? step * (1 - rk) : 0); if (rtl) x = SB_W - x - cw; /* (the ones after it close the gap) */
+    float x = 48 + i * step - off + (rem && i >= b->remIdx ? step * (1 - rk) : 0) + (i > r->col ? ex : 0); if (rtl) x = SB_W - x - cw; /* (the ones after it close the gap) */
     int load = near && i >= r->col - 2 && i < r->col + 9;
-    hit_add(x, cy, cw, ch, card_focus, NULL, ri, i);
+    if (active && i == r->col) { hit_add(rtl ? x - ex : x, cy, cw + ex, ch, card_focus, NULL, ri, i); continue; } hit_add(x, cy, cw, ch, card_focus, NULL, ri, i);
     if (active && i == r->col) continue; /* the focused card is drawn last, over its neighbours as it grows */
     int hold; const CardPrep *cp = row_prep(r, i, load, &hold, NULL); unsigned long long lk = lift_key(r, i);
     lift_begin(lk, 0, 0, x, cy, cw, ch, CARD_R); /* (the one the focus just left settles back) */
@@ -567,16 +590,20 @@ static void row_draw(Board *b, Row *r, int ri, float y, int near, float rowA) {
   }
   if (ca < 1) gfx_opacity_pop();
   if (near) { row_prefetch(r, 0, i1 + 1, i1 + 6); row_prefetch(r, 1, i0 - 2, i0 - 1); }
-  if (active && r->col < r->items.n) { float x = 48 + r->col * step - off + (rem && r->col >= b->remIdx ? step * (1 - rk) : 0); if (rtl) x = SB_W - x - cw;
+  if (active && r->col < r->items.n) { float x = 48 + r->col * step - off + (rem && r->col >= b->remIdx ? step * (1 - rk) : 0); if (rtl) x = SB_W - x - cw; float ox = rtl ? x - ex : x, ow = cw + ex; /* (mirrored, it opens to the left) */
     int hold; const CardPrep *cp = row_prep(r, r->col, 1, &hold, NULL);
     float fa = ra * (1 - 0.15f * melt); if (fa < 1) gfx_opacity_push(fa); /* the card whose trailer plays stays clear (.85) while the rest melts */
     float hp = app_hold_progress(); unsigned long long lk = lift_key(r, r->col);
-    lift_begin(lk, 1, hp, x, cy, cw, ch, CARD_R);
+    lift_begin_z(lk, 1, hp, ox, cy, ow, ch, CARD_R, 0.06f * (1 - ek)); /* (still when open: the video's rectangle cannot scale with it) */
+    if (ex > 0) gfx_rrect(ox, cy, ow, ch, CARD_R, RGB(0x0c, 0x0b, 0x11));
     card_draw_prep(&r->items.items[r->col], cp, x, cy, cw, ch, r->wide, r->label, 1);
+    if (ek > 0.001f) { char bu[512]; int fw = r->wide ? (int)cw : (int)CARD_OPEN_W; if (sb_bg_mid(&r->items.items[r->col], bu, sizeof bu)[0]) { GLuint bt = img_get_shaped(bu, fw, (int)ch, CARD_R, 1); /* a size of its own, loaded once: it is uncovered as the card widens */
+        if (bt) { gfx_clip_push(ox, cy, ow, ch); gfx_opacity_push(ek * ek); ph_picture(bt, rtl ? ox + ow - fw : ox, cy, (float)fw, ch, CARD_R, WHITE_A(255)); gfx_opacity_pop(); gfx_clip_pop(); } } }
     if (hp > 0) hold_trace_draw(x, cy, cw, ch, CARD_R, ease_apply(EASE_IN_OUT, hp));
     if (btr_playing() && melt > 0.9f) { mkRow = r; mkCol = r->col; } /* the card whose trailer plays: the mark stays on it, and goes with it */
     if (melt > 0.01f && mkRow == r && mkCol == r->col) playing_mark(x, cy, ch, melt);
-    lift_end(lk, x, cy, cw, ch, CARD_R);
+    lift_end(lk, ox, cy, ow, ch, CARD_R);
+    if (ek >= 0.999f) { btr_card_rect(ox, cy + b->hostY.v + (b->kind == 1 ? b->spotY.v : 0), ow, ch); float va = btr_card_alpha(); if (va > 0.001f) { gfx_hole(ox, cy, ow, ch, CARD_R, va); gfx_ring(ox, cy, ow, ch, CARD_R, 3, WHITE_A((int)(235 * va))); } } /* the video shows through, under the card's own edge */
     if (fa < 1) gfx_opacity_pop(); }
   if (r->ntiles) { int a = (int)(off / step) - 1, z = (int)((off + SB_W - 48) / step) + 1, fit = r->wide ? 1 : 0; if (a < 0) a = 0; if (z > r->ntiles - 1) z = r->ntiles - 1; if (ca < 1) gfx_opacity_push(ca); /* a tile's own picture, with its name only when it asks for one or has none */
     for (int pass = 0; pass < 2; pass++) for (int i = a; i <= z; i++) { int on = active && i == r->col; if (on != pass) continue; const ColFolder *f = &r->tiles[i]; float x = 48 + i * step - off; if (rtl) x = SB_W - x - cw; unsigned long long lk = lift_key(r, i);
@@ -586,7 +613,7 @@ static void row_draw(Board *b, Row *r, int ri, float y, int near, float rowA) {
       if (!f->hideTitle || !f->cover[0] || (!pic && f->cover[0] && img_shaped_failed(f->cover, (int)cw, (int)ch, CARD_R, fit))) text_draw(f->title, x + cw / 2, cy + (ch - lh) / 2, 31, 700, WHITE_A(on ? 255 : 217), 0, cw - 32, ALIGN_CENTER); (void)got;
       lift_end(lk, x, cy, cw, ch, CARD_R); }
     if (ca < 1) gfx_opacity_pop(); }
-  if (see_all(r)) { int i = r->items.n, on = active && r->col == i; float x = 48 + i * step - off; if (rtl) x = SB_W - x - cw;
+  if (see_all(r)) { int i = r->items.n, on = active && r->col == i; float x = 48 + i * step - off + ex; if (rtl) x = SB_W - x - cw;
     if (x + cw > 0 && x < SB_W) { unsigned long long lk = lift_key(r, i); hit_add(x, cy, cw, ch, card_focus, NULL, ri, i); if (ca < 1) gfx_opacity_push(ca);
       lift_begin(lk, on, 0, x, cy, cw, ch, CARD_R); gfx_rrect(x, cy, cw, ch, CARD_R, WHITE_A(on ? 40 : 18));
       text_draw(T("See All"), x + cw / 2, cy + (ch - lh) / 2, 31, 700, WHITE_A(on ? 255 : 191), 0, cw - 32, ALIGN_CENTER);
@@ -599,6 +626,7 @@ static void board_draw(void) {
   hero_draw(b);
   { const ColFolder *tf = focusOn(b) ? tile_cur(b) : NULL; /* a tile in focus: its logo, or its name, where a title's would be */
     if (tf) { int rtl = app_rtl(); float lw, lh, x = rtl ? SB_W - HERO_X : HERO_X; GLuint lt; if (tf->logo[0] && logo_fit(tf->logo, 480, 150, &lw, &lh, &lt)) gfx_image(lt, rtl ? x - lw : x, HERO_Y, lw, lh, 0, WHITE_A(255), 0, 0, 1, 1); else if (!tf->logo[0] || img_failed(tf->logo)) text_draw(tf->title, x, HERO_Y, 76, 800, WHITE_A(255), -1.6f, HERO_W, rtl ? ALIGN_RIGHT : ALIGN_LEFT); else img_get(tf->logo, 520, 175, NULL); } }
+  if (b->kind == 2 && !b->n && colFolder && colFolder->nsrc) { char m[220]; snprintf(m, sizeof m, "%s: %s", T("This needs an addon that is not installed"), colFolder->src[0].addonId); text_draw(m, SB_W / 2, SB_H / 2, 31, 600, WHITE_A(204), 0, SB_W - 96, ALIGN_CENTER); } /* no row could be made: why, rather than nothing found */
   if (b->kind == 2 && app_now() - colAt > 6) { int any = 0; for (int i = 0; i < b->n && !any; i++) any = !b->rows[i].hidden; if (!any) text_draw(T("Nothing found."), SB_W / 2, SB_H / 2, 31, 600, WHITE_A(204), 0, SB_W - 96, ALIGN_CENTER); }
   gfx_clip_push(0, ROWS_TOP, SB_W, SB_H - ROWS_TOP);
   float sy = b->kind == 1 ? b->spotY.v : 0, ra0 = b->kind == 1 ? b->rowsA.v : 1;

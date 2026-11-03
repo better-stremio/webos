@@ -15,5 +15,7 @@ int btr_playing(void);  /* a background trailer is up and playing (not on its wa
 unsigned btr_hold_gen(void); /* a key stopped the trailer: the backdrop generation it stopped at (that one is not shown again), else 0 */
 float btr_cover(void);        /* 1 = the picture covers the video, 0 = the video is uncovered */
 float btr_zoom(void);         /* the backdrop's scale (1 .. 1.025), around (960, 400) */
+void  btr_card_rect(float x, float y, float w, float h); /* the expanded card, in screen units, once a frame while it is fully open: the video goes there */
+float btr_card_alpha(void);   /* how far the card has opened onto the video, 0..1 */
 float btr_melt(void);         /* 0..1: the page's dim while it plays */
 #endif

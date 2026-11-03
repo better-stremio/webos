@@ -1,4 +1,5 @@
 #include "core/app.h"
+#include "platform/plat.h"
 #include "core/bgtrailer.h"
 #include "core/best.h"
 #include "core/keys.h"
@@ -770,7 +771,7 @@ static void key_core(int k, int down, int repeat);
 #define PTR_ARROW_DIST 32
 #define PTR_ARROW_PAUSE 0.3
 static struct { int on; float x, y; Hit hv; int hasHv; float hx, hy; double movedAt; int down, downAct; Hit act; double okKeyAt, clickAt, wheelAt; int eatUp, eatOk, arrowHid; double arrowAt; int anchor; float ax, ay; double tremAt; int dirty; } PTR;
-static void ptr_show(void) { PTR.arrowHid = 0; if (PTR.on) return; PTR.on = 1; PTR.hasHv = 0; }
+static void ptr_show(void) { int was = PTR.arrowHid; PTR.arrowHid = 0; if (was) plat_cursor_visible(1); if (PTR.on) return; PTR.on = 1; PTR.hasHv = 0; }
 static void ptr_hide(void) { if (!PTR.on) return; PTR.on = 0; PTR.hasHv = 0; }
 static int ptr_tremor(double now) { if (!PTR.arrowHid) return 0; if (now - PTR.arrowAt < PTR_ARROW_WIN) return 1;
   if (!PTR.anchor || now - PTR.tremAt > PTR_ARROW_PAUSE) { PTR.anchor = 1; PTR.ax = PTR.x; PTR.ay = PTR.y; } PTR.tremAt = now; float dx = PTR.x - PTR.ax, dy = PTR.y - PTR.ay; return dx * dx + dy * dy < PTR_ARROW_DIST * PTR_ARROW_DIST; }
@@ -809,13 +810,13 @@ void app_pointer_button(int down, float x, float y) {
 }
 /* the wheel = the Up/Down arrows (Left/Right for a sideways wheel), one per notch; it leaves the pointer out */
 void app_pointer_wheel(float dx, float dy) { double now = NOW; if (saver_on()) return; if (now - PTR.wheelAt < PTR_WHEEL || (!dx && !dy)) return; PTR.wheelAt = now; idle_touch(); int k = dy > 0 ? K_UP : dy < 0 ? K_DOWN : dx > 0 ? K_RIGHT : K_LEFT; key_core(app_mirror_key(k), 1, 0); key_core(k, 0, 0); }
-void app_pointer_system(int show) { if (!show) { ptr_hide(); return; } if (PTR.arrowHid) return; ptr_show(); }
+void app_pointer_system(int show) { if (!show) { ptr_hide(); return; } if (PTR.arrowHid) { if (NOW - PTR.arrowAt < PTR_ARROW_WIN) plat_cursor_visible(0); return; } ptr_show(); } /* (the TV showing it again right after an arrow: only the remote stirring) */
 void app_key(int k, int down, int repeat) {
   if (k == K_CURSOR_SHOW || k == K_CURSOR_HIDE) { if (down) app_pointer_system(k == K_CURSOR_SHOW); return; } /* a notice from the TV, not a key */
   if (down && k == K_OK && !repeat) { if (PTR.eatOk || PTR.down || (PTR.clickAt && NOW - PTR.clickAt < PTR_DEDUPE)) { PTR.eatOk = 1; return; } PTR.okKeyAt = NOW; } /* the click of this same press came first */
   if (!down && k == K_OK && PTR.eatOk) { PTR.eatOk = 0; return; }
   if (down && saver_on() && k != K_CURSOR_SHOW && k != K_CURSOR_HIDE) { saver_stop(); idle_touch(); if (k == K_OK) PTR.eatOk = 1; return; } /* the key that wakes the screensaver does nothing else */
-  if (down && k >= K_LEFT && k <= K_DOWN) { ptr_hide(); PTR.arrowHid = 1; PTR.arrowAt = NOW; PTR.anchor = 0; } /* every arrow re-arms it, hidden or not */
+  if (down && k >= K_LEFT && k <= K_DOWN) { ptr_hide(); PTR.arrowHid = 1; PTR.arrowAt = NOW; PTR.anchor = 0; plat_cursor_visible(0); } /* every arrow re-arms it, hidden or not; ptr_hide alone is the app's hover: the arrow on screen is the TV's */
   key_core(k, down, repeat);
 }
 /* where the focus is, as far as can be told from outside: the screen, the open sheet, the top bar, the centre of

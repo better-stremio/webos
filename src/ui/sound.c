@@ -72,7 +72,7 @@ static int run(void *u) {
 void sound_play(int which) {
   if (which == SND_PLAY || which == SND_START || which == SND_HOLD) return; /* two sounds only: the tabs' and one for everything else */
   if (which != SND_TAB) which = SND_FOCUS;
-  if (which < 0 || which >= SND_N || SDL_AtomicGet(&quiet) || !strcmp(store_get("uiSound", "true"), "false")) return;
+  if (which < 0 || which >= SND_N || SDL_AtomicGet(&quiet) || !strcmp(store_get("uiSound", "false"), "false")) return;
   static double prev[SND_N], prevAny; double now = app_now();
   if (now - prev[which] < 0.06) return; /* asked twice for one move (the key and the drawing): once */
   SDL_AtomicSet(&softNext, which != SND_HOLD && which != SND_PLAY && which != SND_START && now - prevAny < 0.16); /* a held key: quieter */

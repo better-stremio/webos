@@ -1,4 +1,4 @@
-/* The background trailer's decisions: after 5 s without a key on Home, Discover or the Library with a card
+/* The focused card's trailer, its decisions: after 3 s without a key on Home, Discover or the Library with a card
    focused, the focused title's trailer (low quality, sound on) plays behind the art; any key stops it at
    once. This module decides when to start and stop; the boards draw it and the player's video backend
    plays it (one hardware decoder: bgt_release_now() before the player loads anything). */

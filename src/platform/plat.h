@@ -9,6 +9,7 @@ void plat_pre_init(const char *appId);
 /* after the window exists */
 void plat_post_window(SDL_Window *w);
 /* where the bundled assets are (fonts, i18n) and where to keep data (settings, caches) */
+void plat_cursor_visible(int on); /* the TV's own pointer, which it draws itself: shown or hidden now (no-op where there is none) */
 const char *plat_asset_dir(void);
 const char *plat_data_dir(void);
 /* the window size to ask for; fullscreen on TVs */
