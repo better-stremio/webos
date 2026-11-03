@@ -49,6 +49,8 @@ void sb_catalog_url(const char *url, const char *type, int n, void (*cb)(ItemLis
    (it can be asked again); list->n 0: the end. more: the answer's hasMore (1 / 0), -1 when it did not say */
 void sb_catalog_page(const CatalogDef *def, int skip, void (*cb)(ItemList *list, int more, void *ud), void *ud);
 /* every installed catalog that searches (its other properties optional), asked for q; 0 when none (Cinemeta's then) */
+int  sb_source_def(const char *addonId, const char *base, const char *type, const char *catalog, const char *genre, const char *title, CatalogDef *d);
+int  sb_name_defs(const char *title, CatalogDef *out, int max);
 int  sb_search_defs(const char *q, CatalogDef *out, int max);
 void itemlist_free(ItemList *l);   /* a malloc'd list (catalog answers) */
 void itemlist_clear(ItemList *l);  /* the items of a list kept elsewhere */

@@ -6,7 +6,7 @@
 #include "core/anim.h"
 #include "core/stremio.h"
 
-typedef enum { SCR_LOGIN = 0, SCR_HOME, SCR_DISC, SCR_LIB, SCR_DETAIL, SCR_SIM, SCR_SEARCH, SCR_SET, SCR_N } Scr;
+typedef enum { SCR_LOGIN = 0, SCR_HOME, SCR_DISC, SCR_LIB, SCR_DETAIL, SCR_SIM, SCR_SEARCH, SCR_SET, SCR_CAT, SCR_COL, SCR_N } Scr;
 typedef struct {
   void (*enter)(const void *params);
   void (*leave)(void);

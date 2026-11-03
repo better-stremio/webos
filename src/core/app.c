@@ -312,7 +312,7 @@ TopNav topNav = { .idx = NAV_HOME };
 static const char *chipLabel(int i) { return i == NAV_DISC ? T("Discover") : i == NAV_HOME ? T("Home") : T("Library"); }
 static int chipCur(int i) {
   Scr t = i == NAV_SEARCH ? SCR_SEARCH : i == NAV_SET ? SCR_SET : i == NAV_DISC ? SCR_DISC : i == NAV_HOME ? SCR_HOME : SCR_LIB;
-  return t == SCR || (t == SCR_HOME && (SCR == SCR_DETAIL || SCR == SCR_SIM));
+  return t == SCR || (t == SCR_HOME && (SCR == SCR_DETAIL || SCR == SCR_SIM || SCR == SCR_CAT || SCR == SCR_COL));
 }
 static int chipFocused(int i) { return topNav.active && topNav.idx == i && !update_pill_focused(); } /* the update notice holds the highlight */
 static void topnav_layout(void) {
@@ -343,7 +343,7 @@ void topnav_focus(void) { topNav.active = 1; topnav_paint(); }
 void topnav_switch(int i) {
   i = i < 0 ? 0 : i > 4 ? 4 : i;
   if (i == topNav.idx && (app_is_board(SCR) || SCR == SCR_SEARCH || SCR == SCR_SET)) return;
-  { Scr c0 = (SCR == SCR_DETAIL || SCR == SCR_SIM) ? SCR_HOME : SCR; int cs = -1; for (int j = 0; j < 5; j++) if (chipScr(j) == c0) cs = j;
+  { Scr c0 = (SCR == SCR_DETAIL || SCR == SCR_SIM || SCR == SCR_CAT || SCR == SCR_COL) ? SCR_HOME : SCR; int cs = -1; for (int j = 0; j < 5; j++) if (chipScr(j) == c0) cs = j;
     if (i == NAV_SEARCH || i == NAV_SET) { navf.kind = NAV_ZOOM; navf.x = topNav.chipX[i] + topNav.chipW[i] / 2; navf.y = 50; } else nav_slide(i >= cs ? 1 : -1); }
   topNav.idx = i; nback = 0; topNav.active = 1;
   app_go(chipScr(i), NULL, 1); topNav.active = 1; topnav_paint();
@@ -374,7 +374,7 @@ static int topnav_key(int k) {
     if ((tg == SCR_SEARCH || tg == SCR_SET) && SCR != tg) {
       if (k == K_OK) { topNav.active = 1; app_go(tg, NULL, 1); topnav_enter_content(); return 1; }
       /* Down from a corner icon: into the page you are on */
-      Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM) ? SCR_HOME : SCR; for (int j = 2; j < 5; j++) if (chipScr(j) == cur) topNav.idx = j; }
+      Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM || SCR == SCR_CAT || SCR == SCR_COL) ? SCR_HOME : SCR; for (int j = 2; j < 5; j++) if (chipScr(j) == cur) topNav.idx = j; }
     topnav_enter_content();
   } else if (k == K_UP) topnav_nudge();
   return 1;
@@ -457,7 +457,7 @@ static void corner_draw(int i, const char *icon, uint32_t dot, float rot) {
   if (sf < 0.999f) gfx_opacity_pop();
 }
 static void chip_focus(int i, int b) { (void)b; if (!topNav.active || topNav.idx != i) { topnav_flush(1); if (!topNav.active) { topNav.active = 1; } topNav.idx = i; topnav_paint(); } }
-static void chip_act(int i, int b) { (void)b; Scr tg = chipScr(i); Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM) ? SCR_HOME : SCR; int ci = -1; for (int j = 2; j < 5; j++) if (chipScr(j) == cur) ci = j;
+static void chip_act(int i, int b) { (void)b; Scr tg = chipScr(i); Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM || SCR == SCR_CAT || SCR == SCR_COL) ? SCR_HOME : SCR; int ci = -1; for (int j = 2; j < 5; j++) if (chipScr(j) == cur) ci = j;
   if (app_overlay) { app_overlay->key(K_BACK); app_overlay = NULL; }
   topnav_flush(1); topNav.active = 1; topNav.idx = i;
   if (tg == SCR_SEARCH || tg == SCR_SET) topnav_key(K_OK); /* opens it, the highlight inside */
@@ -694,7 +694,7 @@ void app_go(Scr s, const void *params, int noStack) {
   if (!noStack && SCR != s) { float ox, oy; int has = 1; if (navf.kind == NAV_ZOOM) { ox = navf.x; oy = navf.y; } else has = scr_origin(&ox, &oy); /* nothing focused: a plain fade in, Back toward the middle */
     if (nback == 8) { memmove(backStack, backStack + 1, 7 * sizeof *backStack); memmove(backX, backX + 1, 7 * sizeof *backX); memmove(backY, backY + 1, 7 * sizeof *backY); nback = 7; }
     backX[nback] = ox; backY[nback] = oy; backStack[nback++] = SCR;
-    if (navf.kind == NAV_NONE && has && (s == SCR_DETAIL || s == SCR_SIM)) { navf.kind = NAV_ZOOM; navf.x = ox; navf.y = oy; } }
+    if (navf.kind == NAV_NONE && has && (s == SCR_DETAIL || s == SCR_SIM || s == SCR_CAT || s == SCR_COL)) { navf.kind = NAV_ZOOM; navf.x = ox; navf.y = oy; } }
   topNav.active = 0;
   Scr old = SCR;
   if ((s == SCR_SET || s == SCR_SEARCH) && old != SCR_SET && old != SCR_SEARCH && old != SCR_LOGIN) { colorFrom = old; colorFromSet = 1; } /* where Settings / Search were opened from */
@@ -719,7 +719,7 @@ void app_go(Scr s, const void *params, int noStack) {
   topnav_paint();
 }
 void app_back(void) {
-  if (topNav.want >= 0) { topnav_flush(1); Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM) ? SCR_HOME : SCR; for (int j = 0; j < 5; j++) if (chipScr(j) == cur) topNav.idx = j; topnav_paint(); return; } /* Back while the pill travels: it returns */
+  if (topNav.want >= 0) { topnav_flush(1); Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM || SCR == SCR_CAT || SCR == SCR_COL) ? SCR_HOME : SCR; for (int j = 0; j < 5; j++) if (chipScr(j) == cur) topNav.idx = j; topnav_paint(); return; } /* Back while the pill travels: it returns */
   if (app_overlay) { app_overlay->key(K_BACK); return; }
   if (SCR == SCR_LOGIN) { if (screens[SCR] && screens[SCR]->key) screens[SCR]->key(K_BACK); return; }
   if (screens[SCR] && screens[SCR]->key && screens[SCR]->key(K_BACK)) return; /* the screen stepped back inside itself */
@@ -774,7 +774,7 @@ static void ptr_show(void) { PTR.arrowHid = 0; if (PTR.on) return; PTR.on = 1; P
 static void ptr_hide(void) { if (!PTR.on) return; PTR.on = 0; PTR.hasHv = 0; }
 static int ptr_tremor(double now) { if (!PTR.arrowHid) return 0; if (now - PTR.arrowAt < PTR_ARROW_WIN) return 1;
   if (!PTR.anchor || now - PTR.tremAt > PTR_ARROW_PAUSE) { PTR.anchor = 1; PTR.ax = PTR.x; PTR.ay = PTR.y; } PTR.tremAt = now; float dx = PTR.x - PTR.ax, dy = PTR.y - PTR.ay; return dx * dx + dy * dy < PTR_ARROW_DIST * PTR_ARROW_DIST; }
-static void ptr_nav_back(void) { if (topNav.want >= 0) return; Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM) ? SCR_HOME : SCR; for (int j = 2; j < 5; j++) if (chipScr(j) == cur && topNav.idx != j) { topNav.idx = j; topnav_paint(); } }
+static void ptr_nav_back(void) { if (topNav.want >= 0) return; Scr cur = (SCR == SCR_DETAIL || SCR == SCR_SIM || SCR == SCR_CAT || SCR == SCR_COL) ? SCR_HOME : SCR; for (int j = 2; j < 5; j++) if (chipScr(j) == cur && topNav.idx != j) { topNav.idx = j; topnav_paint(); } }
 static void ptr_keep(const Hit *h) { PTR.hv = *h; PTR.hasHv = 1; PTR.hx = h->x + h->w / 2; PTR.hy = h->y + h->h / 2; }
 /* the brake: the element the pointer last focused moved (a slide, a scroll) or went away -> note when */
 static void ptr_settle(double now) { if (!PTR.hasHv) return; const Hit *h = hit_at(PTR.hx, PTR.hy); int found = 0; float cx = PTR.hx, cy = PTR.hy;

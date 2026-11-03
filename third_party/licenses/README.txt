@@ -1,5 +1,6 @@
 Third-party code in this app and its licences:
 - libsbengine.so: the torrent engine github.com/NuvioMedia/nuvio-engine (GPL-3.0, torrent-engine-GPL-3.0.txt), patched (tools/engine/engine.patch in the source),
+- Collections (src/core/collections.c, sb_source_def in src/core/stremio.c): logic ported from github.com/NuvioMedia/NuvioTVSmart (GPL-3.0).
   on libtorrent 2.0.12 (BSD, libtorrent-BSD.txt) and Boost 1.86 (Boost Software License 1.0, boost-BSL-1.0.txt).
 - libsbdts.so: the sound converter (tools/dts/sbdts.c) on FFmpeg 7.1.1 (LGPL 2.1 or later, ffmpeg-LGPL-2.1.txt), unmodified, built
   as described in ffmpeg-SOURCE.txt (tools/build-ffmpeg.sh); a shared library of its own, so it can be rebuilt and replaced.

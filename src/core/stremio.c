@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include "core/stremio.h"
 #include "core/net.h"
 #include "core/store.h"
@@ -144,6 +145,45 @@ int sb_disc_defs(CatalogDef *out, int max) {
   for (int i = 0; i < 3 && n < max; i++) def_set(&out[n++], defs[i][0], defs[i][1], defs[i][2], NULL, 1, defs[i][3]);
   for (int i = 0; i < 5 && n < max; i++) { char ex[64] = "", key[16]; addon_extra_add(ex, sizeof ex, "genre", genres[i]); snprintf(key, sizeof key, "d_g_%d", i); def_set(&out[n++], genres[i], "movie", CINEMETA "/catalog/movie/top", ex, 1, key); }
   if (n < max) n += board_defs(out + n, max - n, HOME_ROWS);
+  return n;
+}
+/* ---- a collection's sources (the order of Nuvio's fetchAddonSourceItems, GPL-3.0) ---- */
+static const cJSON *cat_find(const cJSON *ad, const char *id, const char *type, int comma) {
+  const cJSON *cats = js_arr(js_obj(ad, "manifest"), "catalogs"), *c; size_t l = comma && strchr(id, ',') ? (size_t)(strchr(id, ',') - id) : strlen(id); if (!cats) return NULL;
+  cJSON_ArrayForEach(c, cats) { const char *ci = js_str(c, "id", ""), *ct = js_str(c, "type", ""); if (!strcmp(ct, type) && strlen(ci) == l && !strncmp(ci, id, l)) return c; }
+  return NULL;
+}
+static void cat_def(CatalogDef *d, const cJSON *ad, const char *type, const char *id, const char *extra, int skip, const char *title) {
+  char base[512], path[512], te[96], ie[300], key[48]; unsigned h = 5381; for (const char *s = id; *s; s++) h = h * 33 + (unsigned char)*s; for (const char *s = type; *s; s++) h = h * 33 + (unsigned char)*s;
+  addon_base(ad, base, sizeof base); addon_urlenc(type, te, sizeof te); addon_urlenc(id, ie, sizeof ie); snprintf(path, sizeof path, "%s/catalog/%s/%s", base, te, ie); snprintf(key, sizeof key, "c%08x", h);
+  def_set(d, title, type, path, extra, skip, key);
+}
+/* a source to a catalog: its addon by id, then address; the catalog by id and type, then the id before its comma; else any
+   addon listing it. An addon that lists no such catalog is still asked (with the source's own type): AIOMetadata answers
+   for catalogs left out of its manifest, and pages them, so those page too until a page brings nothing new */
+int sb_source_def(const char *addonId, const char *baseUrl, const char *type, const char *catalog, const char *genre, const char *title, CatalogDef *d) {
+  cJSON *a = sb_addons(); const cJSON *x, *ad = NULL, *cat = NULL; if (!a) return 0;
+  cJSON_ArrayForEach(x, a) { if (!sb_addon_on(x)) continue; char k[300]; sb_addon_key(x, k, sizeof k); if (!strcmp(k, addonId)) { ad = x; break; } }
+  if (!ad && *baseUrl) cJSON_ArrayForEach(x, a) { if (!sb_addon_on(x)) continue; char b[512]; addon_base(x, b, sizeof b); if (!strcmp(b, baseUrl)) { ad = x; break; } }
+  if (ad) { cat = cat_find(ad, catalog, type, 0); if (!cat) cat = cat_find(ad, catalog, type, 1); }
+  if (!cat) cJSON_ArrayForEach(x, a) { if (!sb_addon_on(x)) continue; const cJSON *c = cat_find(x, catalog, type, 0); if (c) { ad = x; cat = c; break; } }
+  if (!ad) return 0;
+  char ex[200] = "", t2[96]; if (*genre) addon_extra_add(ex, sizeof ex, "genre", genre);
+  if (cat) { const char *nm = js_str(cat, "name", ""); snprintf(t2, sizeof t2, "%s · %s", *nm ? nm : title, type_label(js_str(cat, "type", type))); title = t2; }
+  cat_def(d, ad, cat ? js_str(cat, "type", type) : type, cat ? js_str(cat, "id", catalog) : catalog, ex, cat ? addon_cat_extra(cat, "skip", NULL, NULL, NULL) : 1, title);
+  return 1;
+}
+static void name_norm(const char *s, char *out, size_t cap) { size_t n = 0; for (; *s && n + 1 < cap; s++) { unsigned char c = (unsigned char)*s; if (c >= 'A' && c <= 'Z') c = (unsigned char)(c + 32); if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) out[n++] = (char)c; } out[n] = 0; }
+static int has_word(const char *s, const char *w) { size_t l = strlen(w); for (const char *p = s; *p; ) { char t[64]; size_t n = 0; while (*p && !isalnum((unsigned char)*p)) p++; while (*p && isalnum((unsigned char)*p)) { if (n + 1 < sizeof t) t[n++] = (char)tolower((unsigned char)*p); p++; } t[n] = 0; if (n == l && !strcmp(t, w)) return 1; } return 0; }
+/* the installed catalogs that carry a tile's name, from any addon: "HBO Max" finds HBO and HBO Latest. Whole words of the
+   catalog's id or name, so War does not find Award; only catalogs a board can ask for with nothing chosen */
+int sb_name_defs(const char *title, CatalogDef *out, int max) {
+  static const char *const AL[][2] = { { "hbomax", "hbo" }, { "max", "hbo" }, { "appletv", "apple" }, { "primevideo", "amazon" }, { "amazonprime", "amazon" }, { "prime", "amazon" }, { "disneyplus", "disney" }, { "paramountplus", "paramount" } };
+  char t[96], t2[96] = ""; name_norm(title, t, sizeof t); if (strlen(t) < 3) return 0; for (size_t i = 0; i < sizeof AL / sizeof *AL; i++) if (!strcmp(t, AL[i][0])) snprintf(t2, sizeof t2, "%s", AL[i][1]);
+  int n = 0; cJSON *a = sb_addons(); const cJSON *ad; if (!a) return 0;
+  cJSON_ArrayForEach(ad, a) { if (!sb_addon_on(ad)) continue; const cJSON *cats = js_arr(js_obj(ad, "manifest"), "catalogs"), *cat; if (!cats) continue;
+    cJSON_ArrayForEach(cat, cats) { if (n >= max) return n; const char *ct = js_str(cat, "type", ""), *ci = js_str(cat, "id", ""), *nm = js_str(cat, "name", ""); char ex[200], nn[96]; if (!*ct || !*ci || addon_cat_default_extra(cat, ex, sizeof ex)) continue; name_norm(nm, nn, sizeof nn);
+      if (!strcmp(nn, t) || has_word(ci, t) || has_word(nm, t) || (*t2 && (has_word(ci, t2) || has_word(nm, t2)))) { char ti[96]; snprintf(ti, sizeof ti, "%s%s%s", nm, *nm ? " · " : "", type_label(ct)); cat_def(&out[n++], ad, ct, ci, ex, addon_cat_extra(cat, "skip", NULL, NULL, NULL), ti); } } }
   return n;
 }
 void sb_meta_line(const cJSON *m, char *out, size_t cap) {
