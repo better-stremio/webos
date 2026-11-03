@@ -40,6 +40,7 @@ int  sb_addon_on(const cJSON *addon);  /* not switched off on this TV ("adOn_<ke
 void sb_addon_key(const cJSON *addon, char *out, size_t cap);  /* its manifest id, or its URL */
 
 /* ---- catalogs ---- */
+int  sb_pinned_defs(CatalogDef *out, int max); /* the catalogs that always head Home, when their addon is installed */
 int  sb_home_defs(CatalogDef *out, int max);
 int  sb_disc_defs(CatalogDef *out, int max);
 /* cached copy first (cb with cached=1), then the fresh one if it differs; the list is malloc'd for the callback owner */

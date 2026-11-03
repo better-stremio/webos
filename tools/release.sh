@@ -12,8 +12,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VER="${1:?usage: tools/release.sh VERSION [site-dir]}"
 SITE="${2:-$ROOT/../stremioorigin-site}"
 ID=tv.stremioorigin.app
-BASE="https://stremio-origin.github.io/webos"
-SRC="https://github.com/stremio-origin/webos"
+BASE="https://better-stremio.github.io/webos"
+SRC="https://github.com/better-stremio/webos"
 [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must look like 1.0.1"; exit 1; }
 mkdir -p "$SITE"
 

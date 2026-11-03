@@ -141,14 +141,15 @@ static void col_rows(Board *b, const ColFolder *f) {
   colPend = nx; for (int i = 0; i < nx; i++) { Row *r = row_add(b, x[i].title, 0, 0); if (!r) break; r->def = x[i]; r->hasDef = 1; sb_catalog_url(x[i].url, x[i].type, 60, on_catalog, tok(b, (int)(r - b->rows))); }
   if (!nx) col_search(b);
 }
-/* Home's collections, the pinned first */
+/* Home's head: What to watch next (its whole first page kept, so its paging leaves no gap), then the collections, the pinned first */
 static void col_home_rows(Board *b) {
+  { CatalogDef x[4]; int n = sb_pinned_defs(x, 4); for (int i = 0; i < n; i++) { Row *r = row_add(b, x[i].title, 0, 0); if (!r) return; r->def = x[i]; r->hasDef = 1; sb_catalog_url(x[i].url, x[i].type, 60, on_catalog, tok(b, (int)(r - b->rows))); } }
   const ColSet *s = colstore();
   for (int pass = 1; pass >= 0; pass--) for (int i = 0; i < s->n; i++) { const Collection *c = &s->c[i]; if (!c->pinTop != !pass || !c->nfolders) continue; Row *r = row_add(b, c->title, c->folders[0].shape == COL_LANDSCAPE, 0); if (!r) return; r->tiles = c->folders; r->ntiles = c->nfolders; r->hidden = 0; }
 }
 static void load_catalog_rows(Board *b, int disc, int keep) {
   if (b->kind == 2) { col_rows(b, colFolder); return; }
-  int oldRow = b->rowIdx, oldCols[MAXROWS]; for (int i = 0; i < b->n; i++) oldCols[i] = b->rows[i].col;
+  int oldRow = b->rowIdx, oldCols[MAXROWS] = { 0 }; /* (rows new since: at their start) */ for (int i = 0; i < b->n; i++) oldCols[i] = b->rows[i].col;
   Item *was = NULL; int nwas = 0; /* Continue Watching as it was, to find one taken out of it */
   if (keep && !disc && b->n && !strcmp(b->rows[0].title, "Continue Watching") && b->rows[0].items.n) { nwas = b->rows[0].items.n; was = malloc(sizeof(Item) * (size_t)nwas); if (was) memcpy(was, b->rows[0].items.items, sizeof(Item) * (size_t)nwas); else nwas = 0; }
   for (int i = 0; i < b->n; i++) row_clear(&b->rows[i]); b->n = 0; b->gen++;
@@ -327,7 +328,7 @@ static HeroLay *hero_lay(Board *b) {
 }
 /* the spotlight's label, upper-cased once per language */
 static const char *trending_up(void) { static char eye[64]; static unsigned lg; if (lg != i18n_gen()) { lg = i18n_gen(); snprintf(eye, sizeof eye, "%s", T("Trending now")); text_upper(eye, sizeof eye); } return eye; }
-static void hero_draw_disc(Board *b, float a, float ta, float ma) {
+static void hero_draw_disc(Board *b, float a) {
   int spot = b->heroSpot; float maxLogoH = spot ? 150 : 175, titlePx = spot ? 92 : 76, cx = SB_W / 2;
   HeroView *v = &b->view; HeroLay *hl = hero_lay(b); float lw = 0, lh = 0, headH; GLuint lt = 0; int drewLogo = logo_fit(v->logo, 520, maxLogoH, &lw, &lh, &lt);
   if (drewLogo) headH = lh; else headH = hl->discName * titlePx * 1.04f;
@@ -340,17 +341,16 @@ static void hero_draw_disc(Board *b, float a, float ta, float ma) {
     float ty = y - 2, l22 = text_line_height(22), ly = ty + (l22 - text_line_height(25)) / 2; int rtl = app_rtl();
     static int shown; static double inAt; /* it comes in once with the title's logo, then stays put while the titles change (only its dot's colour follows them, as the page dots do) */
     float sa = b->spotA.v; /* (the spotlight itself showing: the hero's own fade between titles does not touch it) */
-    if (sa < 0.01f) shown = 0; else if (!shown && a * ta * b->logoIn.v > 0.5f) { shown = 1; inAt = app_now(); }
+    if (sa < 0.01f) shown = 0; else if (!shown && a * b->logoIn.v > 0.5f) { shown = 1; inAt = app_now(); }
     float ke = shown ? ease_apply(EASE_OUT, clampf((float)((app_now() - inAt) / 0.45), 0, 1)) : 0, la = sa * ke;
     if (la > 0.002f) { gfx_opacity_push(la); gfx_offset_push(0, 12 * (1 - ke));
       text_draw(trending_up(), cx + 9, ly, 25, 800, WHITE_A(236), 5.0f, 0, ALIGN_CENTER);
       gfx_circle(rtl ? cx + 9 + tw / 2 + 16 : cx + 9 - tw / 2 - 16, ly + text_line_height(25) / 2, 5, acc_light() | 0xff000000u);
       gfx_offset_pop(); gfx_opacity_pop(); }
     y += l22 + 18; }
-  gfx_opacity_push(a * ta);
+  gfx_opacity_push(a);
   if (drewLogo) { char sk[80]; snprintf(sk, sizeof sk, "logo:%s", b->hero.id); sx_image(sk, lt, cx - lw / 2, y, lw, lh, 0, WHITE_A((int)(255 * b->logoIn.v)), 0, 0, 1, 1); }
   else if (!v->wait) { char sk[80]; snprintf(sk, sizeof sk, "logo:%s", b->hero.id); sx_text_wrapped(sk, v->name, cx, y, 1500, 2, (int)titlePx, 800, WHITE_A(255), -1.6f, ALIGN_CENTER, titlePx * 1.04f); } /* the name as text art moves across like a logo */
-  gfx_opacity_pop(); gfx_opacity_push(a * ma);
   y += headH + 20; meta_draw_p(&hl->mp, cx, y, WHITE_A(255), ALIGN_CENTER); y += metaH;
   if (dl) text_draw_wrapped(v->desc, cx, y + 16, 1080, 2, DESC_PX, 400, WHITE_A(204), 0, ALIGN_CENTER, DESC_LH);
   gfx_opacity_pop();
@@ -372,24 +372,20 @@ static GLuint scrim_tex(void) {
   t = gfx_tex_create(px, N, N, 1, 1); return t;
 }
 static void hero_draw(Board *b) {
-  float melt = btr_melt(), ta = 1 - (b->kind == 1 ? 0.81f : 0.22f) * melt, ma = 1 - 0.9f * melt; /* the trailer: the title stays at .78 (Discover's big one goes with the rows), the rest .1 */
   if (b->kind == 1 && b->spotA.v > 0.001f) gfx_alpha_tex(scrim_tex(), 260, 170, SB_W - 520, 460, RGBA(12, 11, 17, (int)(255 * b->spotA.v))); /* painted once, one quad */
   if (b->kind == 1) dots_draw(b);
   if (!b->heroSet) return; float a = b->heroA.v; if (a <= 0.001f && !(b->kind == 1 && b->heroSpot)) return;
   /* first launch: the hero rises 18 px and fades in (no delay) */
   float rv = app_reveal_x(0, 0.5f), ry = 18 * (1 - ease_apply(EASE_WEB, rv)), ra = ease_apply(EASE_CSS_EASE, app_reveal_x(0, 0.45f));
-  if (b->kind == 1) { gfx_opacity_push(ra); gfx_offset_push(0, ry); hero_draw_disc(b, a, ta, ma); gfx_offset_pop(); gfx_opacity_pop(); return; }
+  if (b->kind == 1) { gfx_opacity_push(ra); gfx_offset_push(0, ry); hero_draw_disc(b, a); gfx_offset_pop(); gfx_opacity_pop(); return; }
   if (a <= 0.001f) return;
   gfx_opacity_push(a * ra); gfx_offset_push(0, ry);
   int rtl = app_rtl(); float x = rtl ? SB_W - HERO_X : HERO_X, y = HERO_Y; int align = rtl ? ALIGN_RIGHT : ALIGN_LEFT;
   HeroView *v = &b->view; HeroLay *hl = hero_lay(b); float lw, lh; GLuint lt;
-  gfx_opacity_push(ta);
   if (logo_fit(v->logo, 480, 150, &lw, &lh, &lt)) { char sk[80]; snprintf(sk, sizeof sk, "logo:%s", b->hero.id); sx_image(sk, lt, rtl ? x - lw : x, y, lw, lh, 0, WHITE_A((int)(255 * b->logoIn.v)), 0, 0, 1, 1); y += lh; } /* a little smaller: the rows get room */
   else { int lines = v->wait ? hl->homeName : sx_text_wrapped(hero_key(b), v->name, x, y, HERO_W, 2, 76, 800, WHITE_A(255), -1.6f, align, 76 * 1.04f); y += lines * 76 * 1.04f; } /* text art on its way: the name waits unseen */
-  gfx_opacity_pop(); gfx_opacity_push(ma);
   y += 20; meta_draw_p(&hl->mp, x, y, WHITE_A(255), align); y += text_line_height(META_PX) > 34 ? text_line_height(META_PX) : 34;
   y += 16; text_draw_wrapped(v->desc, x, y, HERO_W, 3, DESC_PX, 400, WHITE_A(204), 0, align, DESC_LH);
-  gfx_opacity_pop();
   gfx_offset_pop(); gfx_opacity_pop();
 }
 
@@ -469,9 +465,9 @@ static const Item *focused_cur(void) { Board *b = cur(); return b ? focused_of(b
 static void card_focus(int r, int c) { Board *b = cur(); if (!b || r >= b->n) return; Row *row = &b->rows[r]; if (c > col_last(row)) return; int was = topNav.active; if (!was && !spotOn(b) && r == b->rowIdx && c == row->col) return;
   topNav.active = 0; if (spotOn(b)) spot_leave(b); if (r == b->rowIdx) { row->col = c; slide_row(row); } else { b->rowIdx = r; row->col = c; slide_row(row); } hero_soon(b, 150); row_more(b, r); }
 static void card_open_tick(Board *b, float dt) {
-  const Row *r = b->rowIdx < b->n ? &b->rows[b->rowIdx] : NULL; int here = r && r->col < r->items.n && focusOn(b) && !app_overlay && strcmp(store_get("bgTrailer", "true"), "false");
+  const Row *r = b->rowIdx < b->n ? &b->rows[b->rowIdx] : NULL; int here = r && r->col < r->items.n && focusOn(b) && !app_overlay;
   if (b->exp.v > 0.001f && (!here || b->expRow != b->rowIdx || b->expCol != r->col)) tween_set(&b->exp, 0); /* moved: shut at once, the row must not lag behind the remote */
-  if (here && app_trailer_idle() > CARD_OPEN_AFTER) { if (b->exp.to < 1) { b->expRow = b->rowIdx; b->expCol = r->col; tween_to(&b->exp, 1, 0.28f, EASE_STD); } } else if (b->exp.to > 0) tween_set(&b->exp, 0);
+  if (here && app_trailer_idle() > CARD_OPEN_AFTER && strcmp(store_get("bgTrailer", "true"), "false")) { /* (the setting read only once it could matter: not every frame) */ if (b->exp.to < 1) { b->expRow = b->rowIdx; b->expCol = r->col; tween_to(&b->exp, 1, 0.28f, EASE_STD); } } else if (b->exp.to > 0) tween_set(&b->exp, 0);
   tween_tick(&b->exp, dt);
 }
 static void board_tick(float dt) {
@@ -546,24 +542,13 @@ static void row_prefetch(Row *r, int slot, int from, int to) {
 }
 /* "its trailer is playing": three slim bars rising and falling out of step, on a small glass chip in the card's
    top left corner (it comes and goes with the trailer) */
-static Row *mkRow; static int mkCol = -1;
-#define playing_mark board_playing_mark /* (the Library draws it too) */
-void board_playing_mark(float x, float y, float h, float a) {
-  float cw = 58, chh = 40, px = x + 14, py = y + 14; (void)h; double t = app_now(); /* the top left corner: clear of the title and progress at the bottom */
-  gfx_opacity_push(a); { float tt = (float)t; lglass_light(0.018f * sinf(tt * 0.157f) + 0.012f * sinf(tt * 0.263f + 1.3f) + 0.008f * sinf(tt * 0.411f + 4.1f)); } /* the same glass as the bar and the player, its light wandering */
-  lglass_shell(px, py, cw, chh, chh / 2, RGBA(12, 11, 17, 160), 1); lglass_light(0);
-  for (int i = 0; i < 3; i++) { float k = 0.5f + 0.5f * sinf((float)(t * 5.2 + i * 1.9)), bh = 8 + 14 * k, bx = px + 17 + i * 9;
-    gfx_rrect(bx, py + chh / 2 + 11 - bh, 5, bh, 2.5f, i == 1 ? ACC2 : WHITE_A(235)); }
-  gfx_opacity_pop();
-}
 static void row_draw(Board *b, Row *r, int ri, float y, int near, float rowA) {
-  int rtl = app_rtl(); float lh = text_line_height(31), melt = btr_melt();
+  int rtl = app_rtl(); float lh = text_line_height(31);
   int active = focusOn(b) && ri == b->rowIdx;
   /* first launch: each row rises 30 px and fades in, 60 ms after the one above */
   float d = 0.04f + (ri < 3 ? ri : 3) * 0.06f, rx = app_revealing() ? 30 * (1 - ease_apply(EASE_WEB, app_reveal_x(d, 0.5f))) : 0, ra = ease_apply(EASE_CSS_EASE, app_reveal_x(d, 0.4f)) * rowA;
-  /* the trailer: rows at .75; the focused row (its title, its cards and the floating copy, as one group) to .19 */
-  float ta = ra * (1 - (active ? 0.81f : 0.25f) * melt), ca = ta;
-  if (ta <= 0.001f && ca <= 0.001f) return;
+  float ta = ra, ca = ra;
+  if (ta <= 0.001f) return;
   if (!r->locAt && r->items.n && near) r->locAt = app_now();
   gfx_offset_push(nudge_x(&r->nudge), nudge_y(&r->nudge) + rx);
   if (ta < 1) gfx_opacity_push(ta);
@@ -573,26 +558,24 @@ static void row_draw(Board *b, Row *r, int ri, float y, int near, float rowA) {
   int i0 = (int)(off / step) - 1, i1 = (int)((off + SB_W - 48) / step) + 1; if (i0 < 0) i0 = 0; if (i1 > r->items.n - 1) i1 = r->items.n - 1;
   float ek = active && ri == b->expRow && r->col == b->expCol && !r->ntiles ? b->exp.v : 0, ex = r->wide ? 0 : (CARD_OPEN_W - cw) * ek; /* the card open: this much wider; the ones after it make room */
   if (ca < 1) gfx_opacity_push(ca);
-  prep_check(r); lift_fade(1 - melt); /* (no shadow or glass of its own over the trailer) */
+  prep_check(r);
   float rk = 1; int rem = b->remAt > 0 && ri == b->remRow && (rk = (float)((app_now() - b->remAt) / 0.38)) < 1; if (rem) rk = ease_apply(EASE_CSS_EASEOUT, rk); else if (ri == b->remRow) b->remAt = 0;
   if (rem) { float gx = 48 + b->remIdx * step - off; if (rtl) gx = SB_W - gx - cw; float s = 0.86f + 0.14f * (1 - rk); /* the one taken out: fading and shrinking where it was */
     gfx_opacity_push(1 - rk); gfx_scale_push(s, s, gx + cw / 2, cy + ch / 2); card_draw_wh(&b->remIt, gx, cy, cw, ch, r->wide, r->label, 0); gfx_scale_pop(); gfx_opacity_pop(); }
   for (int i = i0; i <= i1; i++) {
     float x = 48 + i * step - off + (rem && i >= b->remIdx ? step * (1 - rk) : 0) + (i > r->col ? ex : 0); if (rtl) x = SB_W - x - cw; /* (the ones after it close the gap) */
     int load = near && i >= r->col - 2 && i < r->col + 9;
-    if (active && i == r->col) { hit_add(rtl ? x - ex : x, cy, cw + ex, ch, card_focus, NULL, ri, i); continue; } hit_add(x, cy, cw, ch, card_focus, NULL, ri, i);
-    if (active && i == r->col) continue; /* the focused card is drawn last, over its neighbours as it grows */
+    if (active && i == r->col) { hit_add(rtl ? x - ex : x, cy, cw + ex, ch, card_focus, NULL, ri, i); continue; } hit_add(x, cy, cw, ch, card_focus, NULL, ri, i); /* the focused card is drawn last, over its neighbours as it grows */
     int hold; const CardPrep *cp = row_prep(r, i, load, &hold, NULL); unsigned long long lk = lift_key(r, i);
     lift_begin(lk, 0, 0, x, cy, cw, ch, CARD_R); /* (the one the focus just left settles back) */
     card_draw_prep(&r->items.items[i], cp, x, cy, cw, ch, r->wide, r->label, !hold && (load || near));
-    if (melt > 0.01f && mkRow == r && mkCol == i) playing_mark(x, cy, ch, melt); /* (the focus has moved on: it fades where it was) */
     lift_end(lk, x, cy, cw, ch, CARD_R);
   }
   if (ca < 1) gfx_opacity_pop();
   if (near) { row_prefetch(r, 0, i1 + 1, i1 + 6); row_prefetch(r, 1, i0 - 2, i0 - 1); }
   if (active && r->col < r->items.n) { float x = 48 + r->col * step - off + (rem && r->col >= b->remIdx ? step * (1 - rk) : 0); if (rtl) x = SB_W - x - cw; float ox = rtl ? x - ex : x, ow = cw + ex; /* (mirrored, it opens to the left) */
     int hold; const CardPrep *cp = row_prep(r, r->col, 1, &hold, NULL);
-    float fa = ra * (1 - 0.15f * melt); if (fa < 1) gfx_opacity_push(fa); /* the card whose trailer plays stays clear (.85) while the rest melts */
+    if (ra < 1) gfx_opacity_push(ra);
     float hp = app_hold_progress(); unsigned long long lk = lift_key(r, r->col);
     lift_begin_z(lk, 1, hp, ox, cy, ow, ch, CARD_R, 0.06f * (1 - ek)); /* (still when open: the video's rectangle cannot scale with it) */
     if (ex > 0) gfx_rrect(ox, cy, ow, ch, CARD_R, RGB(0x0c, 0x0b, 0x11));
@@ -600,17 +583,15 @@ static void row_draw(Board *b, Row *r, int ri, float y, int near, float rowA) {
     if (ek > 0.001f) { char bu[512]; int fw = r->wide ? (int)cw : (int)CARD_OPEN_W; if (sb_bg_mid(&r->items.items[r->col], bu, sizeof bu)[0]) { GLuint bt = img_get_shaped(bu, fw, (int)ch, CARD_R, 1); /* a size of its own, loaded once: it is uncovered as the card widens */
         if (bt) { gfx_clip_push(ox, cy, ow, ch); gfx_opacity_push(ek * ek); ph_picture(bt, rtl ? ox + ow - fw : ox, cy, (float)fw, ch, CARD_R, WHITE_A(255)); gfx_opacity_pop(); gfx_clip_pop(); } } }
     if (hp > 0) hold_trace_draw(x, cy, cw, ch, CARD_R, ease_apply(EASE_IN_OUT, hp));
-    if (btr_playing() && melt > 0.9f) { mkRow = r; mkCol = r->col; } /* the card whose trailer plays: the mark stays on it, and goes with it */
-    if (melt > 0.01f && mkRow == r && mkCol == r->col) playing_mark(x, cy, ch, melt);
     lift_end(lk, ox, cy, ow, ch, CARD_R);
     if (ek >= 0.999f) { btr_card_rect(ox, cy + b->hostY.v + (b->kind == 1 ? b->spotY.v : 0), ow, ch); float va = btr_card_alpha(); if (va > 0.001f) { gfx_hole(ox, cy, ow, ch, CARD_R, va); gfx_ring(ox, cy, ow, ch, CARD_R, 3, WHITE_A((int)(235 * va))); } } /* the video shows through, under the card's own edge */
-    if (fa < 1) gfx_opacity_pop(); }
+    if (ra < 1) gfx_opacity_pop(); }
   if (r->ntiles) { int a = (int)(off / step) - 1, z = (int)((off + SB_W - 48) / step) + 1, fit = r->wide ? 1 : 0; if (a < 0) a = 0; if (z > r->ntiles - 1) z = r->ntiles - 1; if (ca < 1) gfx_opacity_push(ca); /* a tile's own picture, with its name only when it asks for one or has none */
     for (int pass = 0; pass < 2; pass++) for (int i = a; i <= z; i++) { int on = active && i == r->col; if (on != pass) continue; const ColFolder *f = &r->tiles[i]; float x = 48 + i * step - off; if (rtl) x = SB_W - x - cw; unsigned long long lk = lift_key(r, i);
-      if (!pass) hit_add(x, cy, cw, ch, card_focus, NULL, ri, i); else hit_add(x, cy, cw, ch, card_focus, NULL, ri, i);
-      lift_begin(lk, on, 0, x, cy, cw, ch, CARD_R); GLuint tx = f->cover[0] && near ? img_get_shaped(f->cover, (int)cw, (int)ch, CARD_R, fit) : 0; int pic = tx != 0, got = 0;
-      if (pic) got = ph_picture(tx, x, cy, cw, ch, CARD_R, WHITE_A(255)); else ph_surface(x, cy, cw, ch, CARD_R);
-      if (!f->hideTitle || !f->cover[0] || (!pic && f->cover[0] && img_shaped_failed(f->cover, (int)cw, (int)ch, CARD_R, fit))) text_draw(f->title, x + cw / 2, cy + (ch - lh) / 2, 31, 700, WHITE_A(on ? 255 : 217), 0, cw - 32, ALIGN_CENTER); (void)got;
+      hit_add(x, cy, cw, ch, card_focus, NULL, ri, i);
+      lift_begin(lk, on, 0, x, cy, cw, ch, CARD_R); GLuint tx = f->cover[0] && near ? img_get_shaped(f->cover, (int)cw, (int)ch, CARD_R, fit) : 0; int pic = tx != 0;
+      if (pic) ph_picture(tx, x, cy, cw, ch, CARD_R, WHITE_A(255)); else ph_surface(x, cy, cw, ch, CARD_R);
+      if (!f->hideTitle || !f->cover[0] || (!pic && f->cover[0] && img_shaped_failed(f->cover, (int)cw, (int)ch, CARD_R, fit))) text_draw(f->title, x + cw / 2, cy + (ch - lh) / 2, 31, 700, WHITE_A(on ? 255 : 217), 0, cw - 32, ALIGN_CENTER);
       lift_end(lk, x, cy, cw, ch, CARD_R); }
     if (ca < 1) gfx_opacity_pop(); }
   if (see_all(r)) { int i = r->items.n, on = active && r->col == i; float x = 48 + i * step - off + ex; if (rtl) x = SB_W - x - cw;
@@ -618,7 +599,6 @@ static void row_draw(Board *b, Row *r, int ri, float y, int near, float rowA) {
       lift_begin(lk, on, 0, x, cy, cw, ch, CARD_R); gfx_rrect(x, cy, cw, ch, CARD_R, WHITE_A(on ? 40 : 18));
       text_draw(T("See All"), x + cw / 2, cy + (ch - lh) / 2, 31, 700, WHITE_A(on ? 255 : 191), 0, cw - 32, ALIGN_CENTER);
       lift_end(lk, x, cy, cw, ch, CARD_R); if (ca < 1) gfx_opacity_pop(); } }
-  lift_fade(1);
   gfx_offset_pop();
 }
 static void board_draw(void) {

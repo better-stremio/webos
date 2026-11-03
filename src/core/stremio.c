@@ -109,12 +109,15 @@ static void def_set(CatalogDef *d, const char *title, const char *type, const ch
   memset(d, 0, sizeof *d); copy_str(d->title, sizeof d->title, title); copy_str(d->type, sizeof d->type, type); copy_str(d->path, sizeof d->path, path);
   copy_str(d->extra, sizeof d->extra, extra ? extra : ""); d->skip = skip; copy_str(d->key, sizeof d->key, key); def_url(d);
 }
+/* What to watch next: its rows head Home wherever the addon sits in the account (Home has room for only the first few) */
+#define PINNED_ADDON "io.github.better-stremio.whattowatchnext"
+static int addon_pinned(const cJSON *ad) { char k[300]; sb_addon_key(ad, k, sizeof k); return !strcmp(k, PINNED_ADDON); }
 /* every installed catalog a board can show, in addon order (as the official board): one asked with nothing chosen,
    or with the first option of each required property (Cinemeta's "year" with this year); never one that needs a
    search or a list of ids. from: how many to pass over first */
 static int board_defs(CatalogDef *out, int max, int from) {
   int n = 0, seen = 0; cJSON *a = sb_addons(); const cJSON *ad; if (!a) return 0; int ai = 0;
-  cJSON_ArrayForEach(ad, a) { if (!sb_addon_on(ad)) { ai++; continue; } const cJSON *cats = js_arr(js_obj(ad, "manifest"), "catalogs"), *cat; char base[512]; addon_base(ad, base, sizeof base); int ci = 0;
+  cJSON_ArrayForEach(ad, a) { if (!sb_addon_on(ad) || addon_pinned(ad)) { ai++; continue; } const cJSON *cats = js_arr(js_obj(ad, "manifest"), "catalogs"), *cat; char base[512]; addon_base(ad, base, sizeof base); int ci = 0;
     if (cats) cJSON_ArrayForEach(cat, cats) {
       const char *ctype = js_str(cat, "type", NULL), *cid = js_str(cat, "id", NULL); char ex[200];
       if (ctype && cid && *ctype && *cid && addon_cat_default_extra(cat, ex, sizeof ex) == 0 && seen++ >= from && n < max) {
@@ -124,6 +127,14 @@ static int board_defs(CatalogDef *out, int max, int from) {
         def_set(d, title, ctype, path, ex, addon_cat_extra(cat, "skip", NULL, NULL, NULL), key); }
       ci++; }
     ai++; }
+  return n;
+}
+int sb_pinned_defs(CatalogDef *out, int max) {
+  int n = 0; cJSON *a = sb_addons(); const cJSON *ad; if (!a) return 0;
+  cJSON_ArrayForEach(ad, a) { if (!sb_addon_on(ad) || !addon_pinned(ad)) continue; const cJSON *cats = js_arr(js_obj(ad, "manifest"), "catalogs"), *cat; if (!cats) continue; char base[512]; addon_base(ad, base, sizeof base);
+    cJSON_ArrayForEach(cat, cats) { const char *ct = js_str(cat, "type", NULL), *ci = js_str(cat, "id", NULL), *nm = js_str(cat, "name", ""); char ex[200]; if (!ct || !ci || n >= max || addon_cat_default_extra(cat, ex, sizeof ex)) continue;
+      char title[96], key[48], path[512], te[96], ie[300]; snprintf(title, sizeof title, "%s: %s", nm, type_label(ct)); snprintf(key, sizeof key, "pin_%d", n); addon_urlenc(ct, te, sizeof te); addon_urlenc(ci, ie, sizeof ie); snprintf(path, sizeof path, "%s/catalog/%s/%s", base, te, ie);
+      def_set(&out[n++], title, ct, path, ex, addon_cat_extra(cat, "skip", NULL, NULL, NULL), key); } }
   return n;
 }
 #define HOME_ROWS 8

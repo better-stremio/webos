@@ -8,6 +8,8 @@
 
 <p align="center">A native TV app for Stremio addons, written in C.</p>
 
+<p align="center">Better Stremio: a fork of <a href="https://github.com/stremio-origin/webos">Stremio Origin</a> (GPL-3.0) with Collections, trailers in the card and more.</p>
+
 <p align="center"><em>Stremio™ is a trademark of its owner. Stremio Origin is independent and unofficial, and is not affiliated with, endorsed by or sponsored by Stremio. The name only describes compatibility.</em></p>
 
 <p align="center">You bring your own Stremio account and your own addons. The app ships empty, hosts and indexes nothing, and plays only the stream links your addons return.</p>
@@ -29,7 +31,7 @@
 ## Install
 For LG TVs running webOS 3 and later (ARM). It should work on all of them, but it has only been tested on webOS 4.4. [Compatibility](docs/compatibility.md)
 
-- With the Homebrew Channel: add the repository `https://stremio-origin.github.io/webos/apps.json`,
+- With the Homebrew Channel: add the repository `https://better-stremio.github.io/webos/apps.json`,
   then install Stremio Origin.
 - Or download the `.ipk` from Releases and install it on a TV in Developer Mode.
 
@@ -39,7 +41,7 @@ For LG TVs running webOS 3 and later (ARM). It should work on all of them, but i
 - Logs stay on the TV. Sharing them is your choice: the app seals them and shows a short code.
 
 ## Support
-- Issues: https://github.com/stremio-origin/webos/issues
+- Issues: https://github.com/better-stremio/webos/issues
 - Support: https://ko-fi.com/simussu
 
 ## Credits

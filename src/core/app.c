@@ -43,7 +43,7 @@ int app_splash_done;
 int (*app_resume_hook)(const Item *it);
 void (*app_card_menu_hook)(const Item *it);
 void (*app_play_hook)(const Stream *s, const char *type, const char *id, const char *vid, int fromStart);
-void app_play(const Stream *s, const char *type, const char *id, const char *vid, int fromStart) { if (!s->url[0]) { app_open_external(s->ext, s->name); return; } if (btr_under()) btr_handover(); else btr_release(); /* a trailer on: the player's art comes over it, then it goes */ /* one decoder: the background trailer lets go first */ if (app_play_hook) app_play_hook(s, type, id, vid, fromStart); else toast(T("Could not play"), 2000, NULL); }
+void app_play(const Stream *s, const char *type, const char *id, const char *vid, int fromStart) { if (!s->url[0]) { app_open_external(s->ext, s->name); return; } btr_release(); /* one decoder: the background trailer lets go first */ if (app_play_hook) app_play_hook(s, type, id, vid, fromStart); else toast(T("Could not play"), 2000, NULL); }
 static char fromStartOnce[160];
 /* "Watch from the beginning": the next play of this title/episode ignores the saved position */
 void app_play_from_start(const Item *it) {
@@ -469,8 +469,7 @@ void topnav_draw(void) {
   int signin = SCR == SCR_LOGIN; float pg = revpanel_page_k(); /* the reviews risen into the title page: the bar goes up and away for its buttons */
   if (pg >= 0.999f) return;
   if (!signin && pg < 0.3f) for (int i = 0; i < 5; i++) { float h = i < 2 ? 76 : 66; hit_add_nav(topNav.chipX[i] + (i == NAV_SEARCH ? update_search_shift(topNav.chipX[NAV_SEARCH], topNav.chipX[NAV_SET]) : 0), 50 - h / 2, topNav.chipW[i], h, chip_focus, chip_act, i, 0); }
-  static float barOut, barV; { float want = btr_melt() > 0.04f ? 1.0f : 0.0f, w = 11.0f, dt = DT > 0.05f ? 0.05f : DT; barV += (w * w * (want - barOut) - 2 * w * barV) * dt; barOut += barV * dt; if (fabsf(want - barOut) < 0.002f && fabsf(barV) < 0.01f) { barOut = want; barV = 0; } } /* its own motion: a spring that starts softly, travels and settles (half a second), turning back smoothly from wherever it is */
-  float mt = barOut < 0 ? 0 : barOut > 1 ? 1 : barOut, ma = mt < 0.15f ? 0 : mt > 0.75f ? 1 : (mt - 0.15f) / 0.6f, rv = ease_apply(EASE_CSS_EASE, app_reveal_x(0, 0.4f)) * (1 - ma * ma * (3 - 2 * ma)); rv *= 1 - pg; if (rv < 1) gfx_opacity_push(rv); /* the background trailer: the bar rises out of the screen, fading across the middle of its way, and comes back as it goes */ float lift = -70 * pg - 140 * mt; if (lift < 0) gfx_offset_push(0, lift);
+  float rv = ease_apply(EASE_CSS_EASE, app_reveal_x(0, 0.4f)) * (1 - pg); if (rv < 1) gfx_opacity_push(rv); float lift = -70 * pg; if (lift < 0) gfx_offset_push(0, lift);
   float nx = nudge_x(&topNav.nudge), ny = nudge_y(&topNav.nudge);
   if (!signin) {
     /* the tabs' capsule: one piece of glass behind the three, brighter while the bar has the focus */
@@ -509,7 +508,7 @@ void topnav_draw(void) {
   }
   if (lift < 0) gfx_offset_pop();
   if (rv < 1) gfx_opacity_pop();
-  lglass_light(0); if (!welcome_is_open()) { float ck = (1 - ma * ma * (3 - 2 * ma)) * (1 - pg); if (ck < 1) gfx_opacity_push(ck); if (lift < 0) gfx_offset_push(0, lift); clock_draw(); if (lift < 0) gfx_offset_pop(); if (ck < 1) gfx_opacity_pop(); } /* the clock: never faded in with the page (it stays where it is through signing in, the start screen and the guide); away only with the bar for a trailer or the reviews */
+  lglass_light(0); if (!welcome_is_open()) { float ck = 1 - pg; if (ck < 1) gfx_opacity_push(ck); if (lift < 0) gfx_offset_push(0, lift); clock_draw(); if (lift < 0) gfx_offset_pop(); if (ck < 1) gfx_opacity_pop(); } /* the clock: never faded in with the page (it stays where it is through signing in, the start screen and the guide); away only with the bar for a trailer or the reviews */
 }
 void app_clock_top(void) { if (splash_signed_in() || welcome_is_open()) { lglass_light(0); clock_draw(); } } /* over the start screen and the guide: the same clock, in its place
 
@@ -519,6 +518,7 @@ void app_clock_top(void) { if (splash_signed_in() || welcome_is_open()) { lglass
 typedef struct { char url[512]; GLuint tex; float aspect; GfxTarget baked; char bakedUrl[512]; int mode, bakedMode, bakedRtl, bakedOk; } BgLayer; /* baked = the picture with its shading, made once per change */
 static BgLayer bgL[2]; static int bgTop;        /* bgL[bgTop] is above */
 static Timer1 bgFade; static int bgFadingIn, bgFadingOut;
+static unsigned bgGen; /* bumps each time a new backdrop takes over */
 static char bgCur[512], bgWant[512], bgAlt[512]; static double bgNotBefore; static int bgWaiting;
 static int bgMode;                              /* 0 = the main pages' shading, 1 = a title page's */
 const char *bg_current(void) { return bgCur; }
@@ -540,7 +540,6 @@ void bg_set(const char *u, int delayMs, const char *alt) {
   if (bgWaiting && !strcmp(u, bgWant)) return;
   snprintf(bgWant, sizeof bgWant, "%s", u); snprintf(bgAlt, sizeof bgAlt, "%s", alt ? alt : ""); bgNotBefore = NOW + delayMs / 1000.0; bgWaiting = 1;
 }
-static unsigned bgGen; /* bumps each time a new backdrop takes over */
 static void bg_show(const char *u, GLuint tex, float aspect) {
   if (bgFade.on) { /* a fade still running ends now */
     if (bgFadingOut) { bgL[bgTop].url[0] = 0; bgL[bgTop].tex = 0; bgL[!bgTop].url[0] = 0; bgL[!bgTop].tex = 0; }
@@ -658,29 +657,15 @@ unsigned bg_glass_tex(float *alpha) {
   float k = bgFade.on ? 1 - powf(1 - timer_x(&bgFade), 2) : 1; if (alpha) *alpha = bgFadingOut ? 1 - k : 1;
   return bg_baked_current(l) || (l->bakedOk && !strcmp(l->bakedUrl, l->url)) ? l->baked.tex : 0;
 }
-unsigned app_bg_gen(void) { return bgGen; }
-int app_bg_pending(void) { return bgWaiting; } /* a new backdrop is on its way (asked, not shown yet) */
 void bg_draw(void) {
   float k = bgFade.on ? ease_apply(EASE_CSS_EASEOUT, timer_x(&bgFade)) : 1;
   /* first launch: the backdrop fades up after the start screen too (0.7 s, from 50 ms in) */
   float rv = ease_apply(EASE_CSS_EASE, app_reveal_x(0.05f, 0.7f));
-  /* the background trailer plays on the video plane under the window: its shading is drawn over it, the page colour
-     below its box, and the picture over both fades off it while the whole background pushes in 2.5% */
-  int under = btr_under(); float cov = under ? btr_cover() : 1, z = btr_zoom();
-  if (under) { gfx_rect(0, 809, SB_W, SB_H - 809, PAGE); vig_draw(0, PAGE, 809); } /* (the shading in the same colour over the opaque foot adds nothing: it stops there) */
-  if (under && !app_is_board(SCR)) gfx_rect(0, 0, SB_W, SB_H, col_alpha(PAGE | 0xff000000u, cov)); /* on a page with no backdrop (Settings, Search): its own colour comes over the trailer as it gives way */
-  float a = rv * cov; if (a <= 0.001f) return;
-  if (z != 1) gfx_scale_push(z, z, SB_W / 2, SB_H * 0.37f);
-  if (under && btr_hold_gen() && bgGen == btr_hold_gen()) a = 0; /* a key stopped the trailer: its own backdrop never comes back, its last frame stays until the next title's */
-  if (a <= 0.001f) { if (z != 1) gfx_scale_pop(); return; }
-  if (under && btr_hold_gen()) bg_layer_draw(&bgL[bgTop], a); /* over the trailer's frame: the new one alone, by the cover's fade */
-  else if (bgFadingIn && bgFade.on) { bg_layer_draw(&bgL[!bgTop], a); bg_layer_draw(&bgL[bgTop], k * a); }
+  float a = rv; if (a <= 0.001f) return;
+  if (bgFadingIn && bgFade.on) { bg_layer_draw(&bgL[!bgTop], a); bg_layer_draw(&bgL[bgTop], k * a); }
   else if (bgFadingOut && bgFade.on) { bg_layer_draw(&bgL[!bgTop], (1 - k) * a); bg_layer_draw(&bgL[bgTop], (1 - k) * a); }
   else bg_layer_draw(&bgL[bgTop], a);
-  if (z != 1) gfx_scale_pop();
 }
-/* the window is cleared transparent while the background trailer shows through it */
-int app_bg_video(void) { return btr_under() && (!player_open() || btr_handing()); } /* (and while the player's art comes over it) */
 
 /* ---- screens, keys ---- */
 static double lastNav; static int curKey; /* the trailer's own idleness: OK (a tap, a hold) neither counts nor stops it */
@@ -1001,7 +986,7 @@ void app_draw_under(void) {
   topnav_draw(); sx_ghost(0); hit_trim(hn); occOn = occWas;
 }
 void app_draw(void) {
-  occOn = occNOn && !btr_under(); occX = occNX; occY = occNY; occW = occNW; occH = occNH; occNOn = 0; /* (last frame's still panel; never over the trailer's zoom) */
+  occOn = occNOn; occX = occNX; occY = occNY; occW = occNW; occH = occNH; occNOn = 0; /* (last frame's still panel) */
   hit_begin(); sx_frame_begin(); sx_layer(0);
   /* the player fades in over the page and, leaving, fades off it onto the page: the page is drawn under it only
      while it does not cover it all (the video plane itself never fades: the art and the controls above it do) */

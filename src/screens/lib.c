@@ -3,7 +3,6 @@
    pill with its name and count, the current category stays open on a quiet surface, the sort always shows its
    order), and a grid of large posters under them, the focused row on top. */
 #include "screens/board.h"
-#include "screens/btrailer.h"
 #include "screens/lib.h"
 #include "core/keys.h"
 #include "core/i18n.h"
@@ -295,18 +294,12 @@ static void head_draw(Head *h, Facts *old, float a, float fk) {
 }
 static void draw(void) {
   int rtl = app_rtl(); int al = rtl ? ALIGN_RIGHT : ALIGN_LEFT; float hx = rtl ? SB_W - 48 : 48;
-  /* a background trailer playing: the page melts back as Home's does (its shade gone, the rail and the posters to .19, the
-     head to .6, the focused poster kept clear at .85) */
-  float melt = btr_melt();
   /* the shade that keeps the grid readable over the backdrop */
-  if (melt > 0) gfx_opacity_push(1 - melt);
   gfx_rrect_v(0, 0, SB_W, 380, 0, RGBA(12, 11, 17, 0), RGBA(12, 11, 17, 89)); gfx_rrect_v(0, 380, SB_W, 220, 0, RGBA(12, 11, 17, 89), RGBA(12, 11, 17, 235)); gfx_rect(0, 600, SB_W, SB_H - 600, RGBA(12, 11, 17, 235));
-  if (melt > 0) { gfx_opacity_pop(); gfx_opacity_push(1 - 0.4f * melt); }
   /* the head: the new title over the one it replaces, crossfading; facts that came late over the earlier ones */
   { float k = L.headIn.on ? ease_apply(EASE_CSS_EASE, timer_x(&L.headIn)) : 1;
     if (L.prev.on && k < 1) head_draw(&L.prev, NULL, 1 - k, 0);
     if (L.cur.on) head_draw(&L.cur, L.factsIn.on ? &L.fprev : NULL, k, L.factsIn.on ? ease_apply(EASE_CSS_EASE, timer_x(&L.factsIn)) : 1); }
-  if (melt > 0) { gfx_opacity_pop(); gfx_opacity_push(1 - 0.81f * melt); }
   /* the rail: pills under the buttons */
   float nx = L.zone == 0 ? nudge_x(&L.nudge) : 0, ny = L.zone == 0 ? nudge_y(&L.nudge) : 0;
   #define RX(px, w) (rtl ? SB_W - RAIL_X - (px) - (w) : RAIL_X + (px))
@@ -330,7 +323,6 @@ static void draw(void) {
       gfx_clip_pop(); gfx_opacity_pop(); } }
   #undef RX
   /* the grid: the focused row on top, the rows around it */
-  if (melt > 0) gfx_opacity_pop();
   gfx_clip_push(34, GRID_TOP, SB_W - 34, SB_H - GRID_TOP);
   if (!L.n) { float y = GRID_TOP + 14 + 30; int any = L.nall > 0;
     text_draw(any ? T("Nothing here yet") : T("Your library is empty."), hx, y, 30, 600, WHITE_A(217), 0, SB_W - 96, al);
@@ -349,12 +341,10 @@ static void draw(void) {
       int isF = L.zone == 1 && i == L.idx; if (isF != pass) continue;
       hit_add(x, y0, LW, LH, card_focus, NULL, i, 0);
       float ia = 1, iy = 0; if (L.gridIn.on) { float t = L.gridIn.t - (c < 4 ? c * 0.03f : 0.12f); float k = clampf(t / 0.3f, 0, 1); k = 1 - powf(1 - k, 5); ia = k; iy = 26 * (1 - k); }
-      ia *= 1 - (isF ? 0.15f : 0.81f) * melt; /* (melting with a trailer: the focused one stays clear) */
       if (ia < 1) gfx_opacity_push(ia);
       float hold = isF ? app_hold_progress() : 0; unsigned long long lk = lift_key(&L, i);
       gfx_offset_push(isF ? gx : 0, (isF ? gyn : 0) + iy); lift_begin(lk, isF, hold, x, y0, LW, LH, CARD_R);
       draw_card(o, x, y0, isF || near); if (hold > 0) hold_trace_draw(x, y0, LW, LH, CARD_R, ease_apply(EASE_IN_OUT, hold));
-      { static int mk = -1; if (isF && btr_playing() && melt > 0.9f) mk = i; if (melt > 0.01f && i == mk) board_playing_mark(x, y0, LH, melt); } /* its trailer playing: the mark, as on Home (it stays on that poster and goes with it) */
       lift_end(lk, x, y0, LW, LH, CARD_R); gfx_offset_pop();
       if (ia < 1) gfx_opacity_pop(); } }
   gfx_clip_pop();

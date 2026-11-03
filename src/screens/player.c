@@ -162,7 +162,7 @@ float player_cover(void) { return P.open ? P.in.v : 0; }
 /* the page under the player: while it covers it only partly, and while a logo flies between them over the art
    (the page's copy is the one that flies back) */
 int player_page_under(void) { return P.open && (P.in.v < 0.999f || (sx_flying() && !P.live)); }
-int player_live(void) { extern int app_bg_video(void); return (P.open && P.live && !P.closing && P.artA.v < 0.02f) || app_bg_video(); } /* (or the boards' background trailer) */
+int player_live(void) { return P.open && P.live && !P.closing && P.artA.v < 0.02f; }
 static int paused(void) { return video_state() == VID_PAUSED; }
 int player_paused(void) { return P.open && !P.closing && P.live && paused(); } /* (the app's screensaver may come over a paused film) */
 static double dur(void) { return video_duration(); }

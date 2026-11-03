@@ -66,7 +66,6 @@ float key_hint(float x, float y, int key, const char *label, uint32_t col, int a
 unsigned long long lift_key(const void *owner, int index);
 float lift_begin(unsigned long long key, int focused, float hold, float x, float y, float w, float h, float r);
 float lift_begin_z(unsigned long long key, int focused, float hold, float x, float y, float w, float h, float r, float zoom); /* the same, growing by `zoom` (0.06 by default) */
-void  lift_fade(float a);   /* the shadow and glass at this strength until set back to 1 */
 void  lift_end(unsigned long long key, float x, float y, float w, float h, float r);
 void  lift_tick(float dt);  /* once a frame, from the app */
 

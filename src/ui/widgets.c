@@ -281,10 +281,9 @@ void focus_tick(FocusPop *f, float dt) { timer_tick(&f->pop, dt); }
 #define LIFT_DUR 0.24f   /* in and out */
 #define GLARE_DUR 0.55f  /* the glare's one pass */
 typedef struct { unsigned long long key; Tween k; double t0; unsigned seen; int on; } LiftE;
-static LiftE LT[LIFT_N]; static unsigned liftFrame; static unsigned long long liftCur; static float liftDim = 1;
+static LiftE LT[LIFT_N]; static unsigned liftFrame; static unsigned long long liftCur;
 /* the lift's own shadow and glass, weaker (a row melting over a background trailer: the card fades as the row does,
    with no dark block of its own over the picture) */
-void lift_fade(float a) { liftDim = a < 0 ? 0 : a > 1 ? 1 : a; }
 unsigned long long lift_key(const void *owner, int index) { return (unsigned long long)(uintptr_t)owner * 1000003ull + (unsigned)index + 1; }
 static LiftE *lift_find(unsigned long long key, int make) {
   LiftE *free_ = NULL;
@@ -309,12 +308,12 @@ float lift_begin_z(unsigned long long key, int focused, float hold, float x, flo
     k = e->k.v; }
   float hk = hold > 0 ? ease_apply(EASE_IN_OUT, hold) : 0, s = (1 + zoom * k) * (1 - 0.04f * hk); /* held: it sinks a little while the line runs */
   gfx_scale_push(s, s, x + w / 2, y + h / 2);
-  if (k * liftDim > 0.002f) gfx_shadow(x, y + 14, w, h, r, 34, BLACK_A((int)(160 * k * liftDim)));
+  if (k > 0.002f) gfx_shadow(x, y + 14, w, h, r, 34, BLACK_A((int)(160 * k)));
   return k;
 }
 void lift_end(unsigned long long key, float x, float y, float w, float h, float r) {
   LiftE *e = lift_find(key, 0);
-  if (e && e->k.v * liftDim > 0.002f) { float k = e->k.v * liftDim;
+  if (e && e->k.v > 0.002f) { float k = e->k.v;
     gfx_rrect_v(x, y, w, h, r, WHITE_A((int)(24 * k)), WHITE_A(0)); /* the glass: light from above, faint, in the shape itself */
     float p = (float)((app_now() - e->t0) / GLARE_DUR);
     /* the glare's one pass, then it rests, faint, near the far edge for as long as the focus stays: the focused card is

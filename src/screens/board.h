@@ -11,5 +11,4 @@ int  board_spot_up(void);
 void board_col_tick(void);      /* an export the phone sent: taken in, Home rebuilt */
 unsigned board_col_gen(void);   /* how many times the collections have changed */
 int  board_sample(Item *out, int max, char *rowTitle, int cap); /* titles from Home's first poster rows (Discover's when Home has none) and the first one's title, for the guide's pictures */       /* Discover's spotlight has the focus (it moves on by itself: no background trailer) */
-void board_playing_mark(float x, float y, float h, float a); /* a poster's "its trailer plays" mark, at a (the melt) */
 #endif
