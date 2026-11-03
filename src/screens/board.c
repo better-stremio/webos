@@ -20,6 +20,7 @@
 #include "screens/lib.h"
 #include "screens/catgrid.h"
 #include "core/colstore.h"
+#include "core/httpd.h"
 
 #define MAXROWS 32
 #define SPOT_ROW 255                 /* (a details answer for a spotlight title, in place of its row) */
@@ -393,6 +394,14 @@ static void board_leave(void) {
 static void enter_home(const void *p) { (void)p; board_leave(); board_enter_k(&boards[0]); }
 static void enter_disc(const void *p) { (void)p; board_leave(); board_enter_k(&boards[1]); }
 static void enter_col(const void *p) { if (p) { colFolder = *(const ColFolder *const *)p; boards[2].built = 0; } board_leave(); board_enter_k(&boards[2]); }
+static unsigned colGen;
+unsigned board_col_gen(void) { return colGen; }
+void board_col_tick(void) {
+  static int once; if (!once) { once = 1; if (getenv("SB_HTTPDLOG")) { char u[600]; httpd_url("/collections", u, sizeof u); fprintf(stderr, "[httpd] %s\n", u); } }
+  char *t = httpd_take_collections(); if (!t) return;
+  if (*t) colstore_import(t); else colstore_clear(); free(t);
+  colGen++; boards[0].built = 0; if (SCR == SCR_HOME) board_rebuild();
+}
 static int board_key(Board *b, int k);
 static int key_col(int k) { return board_key(&boards[2], k); }
 /* the next page when the focus is a few cards from the row's end (the official apps load a catalog's pages the same

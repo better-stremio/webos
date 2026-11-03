@@ -1,4 +1,5 @@
 #include "core/httpd.h"
+#include "core/collections.h"
 #include "core/app.h"
 #include "core/i18n.h"
 #include <stdio.h>
@@ -22,6 +23,7 @@
 #define MSG_NOSIGNAL 0   /* the Mac: SO_NOSIGPIPE on each socket instead */
 #endif
 #define IDLE_SEC (15 * 60)
+#define COL_MAX (2 * 1024 * 1024) /* an export (the size of the largest seen is 185 KB) */
 #define MAX_REQ 4096     /* a request line and its headers; anything longer is not one of ours */
 #define MAX_CONN 8
 
@@ -121,6 +123,30 @@ static void trakt_page(Buf *b) {
     "x.onerror=function(){s.textContent="); js(b, pt("Can\xe2\x80\x99t reach the TV")); b_s(b, ";};x.send();};</script></body></html>");
 }
 
+/* Collections: paste an export or pick its file; it is checked here, and the main thread takes it in */
+static void col_page(Buf *b) {
+  head(b, pt("Collections")); b_s(b, "<h1>"); hx(b, pt("Collections")); b_s(b, "</h1><p>"); hx(b, pt("Pick a Nuvio collections export, or paste it. It stays on your TV.")); b_s(b, "</p>");
+  b_s(b, "<input id=\"f\" type=\"file\" accept=\".json,application/json,text/plain\"><textarea id=\"t\" rows=\"6\" dir=\"ltr\" autocomplete=\"off\" spellcheck=\"false\" style=\"width:100%;box-sizing:border-box\"></textarea><button id=\"b\">"); hx(b, pt("Import")); b_s(b, "</button> <button id=\"r\">"); hx(b, pt("Remove")); b_s(b, "</button><small id=\"s\"></small><script>"
+    "var t=document.getElementById(\"t\"),s=document.getElementById(\"s\"),p=location.pathname;function send(v){s.textContent="); js(b, pt("Checking\xe2\x80\xa6")); b_s(b, ";var x=new XMLHttpRequest();x.open(\"POST\",p+\"/set\");x.setRequestHeader(\"Content-Type\",\"text/plain\");"
+    "x.onload=function(){s.textContent=x.status===204?"); js(b, pt("Saved. You can close this page.")); b_s(b, ":"); js(b, pt("That is not a collections export")); b_s(b, ";};x.onerror=function(){s.textContent="); js(b, pt("Can\xe2\x80\x99t reach the TV")); b_s(b, ";};x.send(v);}"
+    "document.getElementById(\"f\").onchange=function(e){var r=new FileReader();r.onload=function(){send(r.result);};if(e.target.files[0])r.readAsText(e.target.files[0]);};"
+    "document.getElementById(\"b\").onclick=function(){send(t.value);};document.getElementById(\"r\").onclick=function(){var x=new XMLHttpRequest();x.open(\"POST\",p+\"/clear\");x.onload=function(){s.textContent="); js(b, pt("Removed")); b_s(b, ";};x.send();};</script></body></html>");
+}
+static void reply(int fd, int code, const char *extra, const char *body, size_t blen);
+static char *colPend; /* (under mu) the export waiting for the main thread; "" = remove them */
+/* deep nesting would run this thread's small stack out while parsing: an export is only a few levels deep */
+static int too_deep(const char *s) { int d = 0, q = 0; for (; *s; s++) { if (q) { if (*s == '\\' && s[1]) s++; else if (*s == '"') q = 0; } else if (*s == '"') q = 1; else if (*s == '[' || *s == '{') { if (++d > 16) return 1; } else if (*s == ']' || *s == '}') d--; } return 0; }
+static void col_set(int fd, const char *got, size_t have, long want) {
+  if (want <= 0 || want > COL_MAX) { reply(fd, want > 0 ? 413 : 400, NULL, NULL, 0); return; }
+  char *t = malloc((size_t)want + 1); if (!t) { reply(fd, 500, NULL, NULL, 0); return; }
+  size_t n = have > (size_t)want ? (size_t)want : have; memcpy(t, got, n);
+  while (n < (size_t)want) { ssize_t r = recv(fd, t + n, (size_t)want - n, 0); if (r < 0 && errno == EINTR) continue; if (r <= 0) break; n += (size_t)r; }
+  t[n] = 0; ColSet s; int ok = n == (size_t)want && !too_deep(t) && col_parse_text(t, &s) > 0; if (ok) col_free(&s);
+  if (!ok) { free(t); reply(fd, 400, NULL, NULL, 0); return; }
+  pthread_mutex_lock(&mu); free(colPend); colPend = t; pthread_mutex_unlock(&mu); reply(fd, 204, NULL, NULL, 0);
+}
+char *httpd_take_collections(void) { pthread_mutex_lock(&mu); char *t = colPend; colPend = NULL; pthread_mutex_unlock(&mu); return t; }
+
 /* ---- requests ------------------------------------------------------------------------------------ */
 static void sendall(int fd, const char *p, size_t n) { while (n) { ssize_t w = send(fd, p, n, MSG_NOSIGNAL); if (w <= 0) { if (w < 0 && errno == EINTR) continue; return; } p += w; n -= (size_t)w; } }
 static void reply(int fd, int code, const char *extra, const char *body, size_t blen) {
@@ -159,15 +185,18 @@ static void handle(int fd) {
   char req[MAX_REQ + 1]; size_t got = 0;
   while (got < MAX_REQ) { ssize_t r = recv(fd, req + got, MAX_REQ - got, 0); if (r <= 0) break; got += (size_t)r; req[got] = 0; if (strstr(req, "\r\n\r\n") || strstr(req, "\n\n")) break; }
   req[got] = 0;
+  int post = !strncmp(req, "POST ", 5); char *he = strstr(req, "\r\n\r\n"), *cl = strcasestr(req, "\ncontent-length:"); size_t bodyAt = he ? (size_t)(he - req) + 4 : got; long want = cl && (!he || cl < he) ? atol(cl + 16) : 0;
   char *sp1 = strchr(req, ' '), *sp2 = sp1 ? strchr(sp1 + 1, ' ') : NULL;
-  if (!sp1 || !sp2 || strncmp(req, "GET ", 4)) { reply(fd, 404, NULL, NULL, 0); return; }
+  if (!sp1 || !sp2 || (strncmp(req, "GET ", 4) && !post)) { reply(fd, 404, NULL, NULL, 0); return; }
   *sp2 = 0; char *target = sp1 + 1, *q = strchr(target, '?'); if (q) *q++ = 0;
   /* /t/<token>, then nothing, /q, /tmdb, /tmdb/set, /trakt or /trakt/set */
   const char *rest = NULL;
   if (!strncmp(target, "/t/", 3) && strlen(target) >= 19 && !strncmp(target + 3, tok, 16)) {
     rest = target + 19;
-    if (*rest && strcmp(rest, "/q") && strcmp(rest, "/tmdb") && strcmp(rest, "/tmdb/set") && strcmp(rest, "/trakt") && strcmp(rest, "/trakt/set")) rest = NULL; }
-  if (!rest) { reply(fd, 404, NULL, NULL, 0); return; }
+    if (*rest && strcmp(rest, "/q") && strcmp(rest, "/tmdb") && strcmp(rest, "/tmdb/set") && strcmp(rest, "/trakt") && strcmp(rest, "/trakt/set") && strcmp(rest, "/collections") && strcmp(rest, "/collections/set") && strcmp(rest, "/collections/clear")) rest = NULL; }
+  if (!rest || post != (!strcmp(rest, "/collections/set") || !strcmp(rest, "/collections/clear"))) { reply(fd, 404, NULL, NULL, 0); return; }
+  if (!strcmp(rest, "/collections/set")) { col_set(fd, req + bodyAt, got - bodyAt, want); return; }
+  if (!strcmp(rest, "/collections/clear")) { char *e = calloc(1, 1); pthread_mutex_lock(&mu); free(colPend); colPend = e; pthread_mutex_unlock(&mu); reply(fd, 204, NULL, NULL, 0); return; }
   if (strcmp(rest, "/q") && strcmp(rest, "/tmdb/set") && strcmp(rest, "/trakt/set")) { pthread_mutex_lock(&mu); hits++; pthread_mutex_unlock(&mu); } /* a code was opened */
   if (!strcmp(rest, "/tmdb/set") || !strcmp(rest, "/trakt/set")) {
     char key[1024]; qparam(q, "key", key, sizeof key);
@@ -178,7 +207,7 @@ static void handle(int fd) {
     pthread_mutex_lock(&mu); typed.seq++; snprintf(typed.text, sizeof typed.text, "%s", t); pthread_mutex_unlock(&mu);
     reply(fd, 204, NULL, NULL, 0); return; }
   Buf b = { 0 };
-  pthread_mutex_lock(&mu); if (!strcmp(rest, "/tmdb")) tmdb_page(&b); else if (!strcmp(rest, "/trakt")) trakt_page(&b); else search_page(&b); pthread_mutex_unlock(&mu);
+  pthread_mutex_lock(&mu); if (!strcmp(rest, "/tmdb")) tmdb_page(&b); else if (!strcmp(rest, "/trakt")) trakt_page(&b); else if (!strcmp(rest, "/collections")) col_page(&b); else search_page(&b); pthread_mutex_unlock(&mu);
   reply(fd, 200, "Content-Type: text/html; charset=utf-8\r\n", b.p, b.n); free(b.p);
 }
 static void *conn_main(void *arg) {

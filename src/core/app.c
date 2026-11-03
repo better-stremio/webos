@@ -886,7 +886,7 @@ void app_tick(float dt) {
   saver_tick(dt);
   accent_tick(dt); tint_tick(); toast_tick(dt); clock_tick(); if (SCR == SCR_LOGIN || splash_signed_in()) login_glow_bake(); /* (the sign-in's glass: the glows under it) */ amb_bake(); topnav_tick(dt); bg_tick(dt); lg_tick(); sync_tick(); update_tick(dt); best_tick();
   curKey = 0; /* (a page switch later in the frame is not a key's) */
-  btr_tick(dt); welcome_tick(); lift_tick(dt); tabs_warm_tick();
+  { extern void board_col_tick(void); board_col_tick(); } btr_tick(dt); welcome_tick(); lift_tick(dt); tabs_warm_tick();
   { static int greeted; if (!greeted && app_splash_done) { greeted = 1; sound_play(SND_START); } } /* start-up: one very faint sound */
   { static int wasP; int po = player_open(); if (po != wasP) { wasP = po; if (po) sound_play(SND_PLAY); sound_quiet(po); } } /* into the player: one faint sound, then the film has the audio alone */
   castlink_tick(dt); /* (a phone drives the film too: before the app rests under it) */

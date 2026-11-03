@@ -24,6 +24,8 @@ unsigned httpd_hits(void);
 /* the key page's "Save": called on the server thread with the key as typed; 1 = TMDB accepted it and it is
    kept. Set by the TMDB module. */
 void httpd_set_key_handler(int (*fn)(const char *key));
+/* the Collections page ("/collections"): an export checked and waiting, for the main thread to free; "" = remove them; NULL = nothing */
+char *httpd_take_collections(void);
 /* the same for the Trakt page's Save (the Trakt module): 1 = Trakt accepted the client id */
 void httpd_set_trakt_handler(int (*fn)(const char *key));
 #endif

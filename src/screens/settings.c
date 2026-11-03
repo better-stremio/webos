@@ -25,6 +25,7 @@
 #include "core/tmdb.h"
 #include "core/trakt.h"
 #include "screens/revpanel.h"
+#include "core/httpd.h"
 #include "ui/qrcard.h"
 #include "core/update.h"
 #include "screens/logcard.h"
@@ -57,7 +58,7 @@ static const Opt SS_OPTS[] = { { "0", "Off" }, { "1", "1 min" }, { "2", "2 min" 
 static const Opt ACCENT_OPTS[] = { { "logo", "From the logo" }, { "adaptive", "From the artwork" }, { "purple", "Purple" }, { "violet", "Violet" }, { "fuchsia", "Fuchsia" }, { "pink", "Pink" }, { "rose", "Rose" }, { "red", "Red" }, { "orange", "Orange" }, { "amber", "Amber" }, { "gold", "Gold" }, { "lime", "Lime" }, { "green", "Green" }, { "emerald", "Emerald" }, { "teal", "Teal" }, { "cyan", "Cyan" }, { "sky", "Sky" }, { "blue", "Blue" }, { "indigo", "Indigo" }, { "graphite", "Graphite" } };
 #define NCAT 9
 #define MAXROWS 48
-static Setting playBase[8], playS[8], subsS[6], audS[5], lookS[2], langS[2], keyS[4], addonS[40], acctS[1], supS[6];
+static Setting playBase[8], playS[8], subsS[6], audS[5], lookS[2], langS[2], keyS[5], addonS[40], acctS[1], supS[6];
 static Cat cats[NCAT]; static int ncat; /* (Keys leaves when this build carries every key) */
 
 /* the layout, in the web's pixels: the grid is centred, 1600 wide, 150 from the top */
@@ -115,6 +116,7 @@ static int lang_opts(void) {
 }
 static int keys_opts(void) {
   int n = 0; tmdbOn = tmdb_has_key(); traktOn = trakt_has_key();
+  set_act(&keyS[n++], "__coll", "Collections", "Rows of tiles on Home. OK to import or remove them from your phone");
   if (!tmdb_builtin()) set_act(&keyS[n++], "__tmdb", "Titles and descriptions", tmdbOn ? "In the app\xe2\x80\x99s language, from TMDB. OK to change the key" : "Only in English. OK to add a TMDB key from your phone");
   if (tmdbOn && !tmdb_builtin()) set_act(&keyS[n++], "__tmdbOff", "Remove the TMDB key", "Titles and descriptions go back to English");
   if (!trakt_builtin()) set_act(&keyS[n++], "__trakt", "Ratings and reviews", traktOn ? "The rating, its spread and people\xe2\x80\x99s comments, from Trakt. OK to change the id" : "OK to add a Trakt client id from your phone");
@@ -122,6 +124,8 @@ static int keys_opts(void) {
   return n;
 }
 static void relang(void) { cats[4].n = lang_opts(); if (S.cat == 4 && S.idx >= cats[4].n) S.idx = cats[4].n - 1; for (int i = 0; i < ncat; i++) if (cats[i].opts == keyS) { cats[i].n = keys_opts(); if (S.cat == i && S.idx >= cats[i].n) S.idx = cats[i].n - 1; } S.dirty = 1; }
+static unsigned collGen0; static int coll_done(void *ud) { (void)ud; return board_col_gen() != collGen0; }
+static void coll_card(void) { char url[600]; httpd_url("/collections", url, sizeof url); collGen0 = board_col_gen(); QrCardOpts o; memset(&o, 0, sizeof o); o.title = T("Collections"); o.sub = T("Scan with your phone, then pick or paste your export"); o.url = url; o.check = coll_done; o.doneTitle = T("Collections updated"); o.doneSub = T("They are on Home now"); o.doneHold = 1.6f; qrcard_show(&o); }
 static void on_tmdb_card(int on, void *ud) { (void)ud; if (on == tmdbOn) return; relang(); if (on) toast(T("Titles and descriptions in your language"), 2000, NULL); }
 static void on_trakt_card(int on, void *ud) { (void)ud; if (on == traktOn) return; relang(); if (on) toast(T("Ratings and comments now come from Trakt too"), 2000, NULL); }
 /* About: the update rows (as the update stands now) and Share logs */
@@ -388,7 +392,8 @@ static int key(int k) {
   else if (k == K_LEFT) S.zone = 0;
   else if (k == K_OK && op) {
     if (op->info) return 1;
-    if (op->action) { if (!strcmp(op->k, "__tmdb")) { qrcard_show_tmdb(on_tmdb_card, NULL); return 1; }
+    if (op->action) { if (!strcmp(op->k, "__coll")) { coll_card(); return 1; }
+      if (!strcmp(op->k, "__tmdb")) { qrcard_show_tmdb(on_tmdb_card, NULL); return 1; }
       if (!strcmp(op->k, "__tmdbOff")) { tmdb_key_clear(); relang(); toast(T("Titles and descriptions in English"), 2000, NULL); return 1; }
       if (!strcmp(op->k, "__trakt")) { qrcard_show_trakt(on_trakt_card, NULL); return 1; }
       if (!strcmp(op->k, "__traktOff")) { trakt_key_clear(); relang(); toast(T("The Trakt id is gone"), 2000, NULL); return 1; }
