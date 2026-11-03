@@ -10,6 +10,8 @@
 
 <p align="center">Better Stremio: a fork of <a href="https://github.com/stremio-origin/webos">Stremio Origin</a> (GPL-3.0) with Collections, trailers in the card and more.</p>
 
+<p align="center"><a href="docs/brag.mp4"><img src="docs/brag.jpg" width="720" alt="Watch the Better Stremio video"></a><br><a href="docs/brag.mp4">▶ Watch the video (75 s)</a></p>
+
 <p align="center"><em>Stremio™ is a trademark of its owner. Stremio Origin is independent and unofficial, and is not affiliated with, endorsed by or sponsored by Stremio. The name only describes compatibility.</em></p>
 
 <p align="center">You bring your own Stremio account and your own addons. The app ships empty, hosts and indexes nothing, and plays only the stream links your addons return.</p>
