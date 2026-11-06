@@ -1,8 +1,8 @@
 {
-  "USB drive found: use it for torrents?": "USB-Laufwerk gefunden: für Torrents nutzen?",
-  "Cache torrents on USB": "Torrents auf USB zwischenspeichern",
+  "USB drive found: use it for P2P?": "USB-Laufwerk gefunden: für P2P nutzen?",
+  "Cache P2P on USB": "P2P auf USB zwischenspeichern",
   "No drive": "Kein Laufwerk",
-  "Plug in a USB drive to keep torrents on it": "USB-Laufwerk anschließen, um Torrents darauf zu speichern",
+  "Plug in a USB drive to keep P2P data on it": "USB-Laufwerk anschließen, um P2P-Daten darauf zu speichern",
   "USB drive": "USB-Laufwerk",
   "{n} GB free": "{n} GB frei",
   "Faster seeks and less memory used": "Schnelleres Spulen und weniger Speicherverbrauch",

@@ -1,4 +1,4 @@
-/* USB drives for the torrent cache (see usb.h). Where a drive is mounted is gathered three ways, because a
+/* USB drives for the P2P stream cache (see usb.h). Where a drive is mounted is gathered three ways, because a
    developer-mode app runs jailed and may not see what the TV sees: the physical device service (luna, its
    mountName), /proc/mounts, and a walk of /tmp/usb/<disk>/<part> (webOS mounts drives there, the letters follow
    the plug order). A candidate counts only if, from inside the app, it is a mount of its own (another device than
@@ -244,7 +244,7 @@ void usb_pump(void) {
     char nm[64]; int u = !h && usb_unreachable(nm, sizeof nm);
     if (!u) tellJail = 0; else if (tellJail == 0) tellJail = 1;
   }
-  if (ask && calm()) { ask = 0; fprintf(stderr, "[usb] notice: use the drive for torrents?\n"); update_notice(T("USB drive found"), T("Set up"), open_usb_setting); }
+  if (ask && calm()) { ask = 0; fprintf(stderr, "[usb] notice: use the drive for P2P streams?\n"); update_notice(T("USB drive found"), T("Set up"), open_usb_setting); }
   if (tellJail == 1 && calm()) { tellJail = 2; update_notice(T("Restart the TV for USB"), T("Why"), open_usb_restart); } /* (like the update: from the Settings icon) */
 }
 void usb_shutdown(void) {

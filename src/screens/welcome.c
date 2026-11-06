@@ -75,7 +75,7 @@
 #define PO_GAP 16.0f
 #define CTL_H 120.0f
 
-enum { PV_KEYS, PV_HOLD, PV_STREAMS, PV_SUBS, PV_TORRENTS, PV_PHONE, PV_YOURKEYS, PV_THANKS, PV_NEWS };
+enum { PV_KEYS, PV_HOLD, PV_STREAMS, PV_SUBS, PV_P2P, PV_PHONE, PV_YOURKEYS, PV_THANKS, PV_NEWS };
 typedef struct { char title[160], lead[300], b[MAXB][200]; const char *ic[MAXB]; int nb, pv, ctl; int nt, nl, nbl[MAXB]; } Page;
 /* a point's chip: an icon, or "@red", "@green", "@ok", "@back": the remote's key itself */
 static const struct { const char *t, *l, *b[MAXB], *ic[MAXB]; int pv, ctl; } TOUR[] = {
@@ -86,14 +86,14 @@ static const struct { const char *t, *l, *b[MAXB], *ic[MAXB]; int pv, ctl; } TOU
     { "Hold to open its menu", "Add it to your Library or mark it as watched", "Its trailer, start over, or something similar" },
     { "@ok", "plus", "similar" }, PV_HOLD, 0 },
   { "The best stream", "Play picks the stream that plays best here, from:",
-    { "Your internet speed", "What your TV plays: resolution, codecs, HDR", "For torrents, how many peers share it", "Hold Play to show all streams", "Play the best stream automatically" },
+    { "Your internet speed", "What your TV plays: resolution, codecs, HDR", "For P2P, how many peers share it", "Hold Play to show all streams", "Play the best stream automatically" },
     { "g_speed", "p_asp", "g_stack", "@ok", "g_bolt" }, PV_STREAMS, 1 },
   { "Subtitles", "In your language, with nothing to install.",
     { "OpenSubtitles is built in", "Your subtitle addons have their own tab", "Out of sync? It is lined up by itself", "Styled subtitles, as the film made them" },
     { "p_subs", "set_addon", "g_sync", "g_type" }, PV_SUBS, 0 },
-  { "Torrents", "Made for TVs with as little as 512 MB.",
+  { "P2P", "Made for TVs with as little as 512 MB.",
     { "They start in seconds: only a small part is kept in memory", "Short on memory? Plug in a USB drive, then turn it on in Settings" },
-    { "g_chip", "g_usb" }, PV_TORRENTS, 0 },
+    { "g_chip", "g_usb" }, PV_P2P, 0 },
   { "Your phone as a keyboard", "Typing with a remote is slow. Use your phone instead.",
     { "Open Search: the code is under the keyboard", "Scan it with your phone\xe2\x80\x99s camera", "Type there and it lands on the TV" },
     { "nav_search", "g_phone", "g_wifi" }, PV_PHONE, 0 },
@@ -257,7 +257,7 @@ static void settings_page(float a, int focus, float usbOn, int about) {
     { "Play the best stream automatically", "Play starts the best stream for this TV and your internet speed", NULL, 0 },
     { "Seek step", "How far Left / Right jumps in the player", "10s", 0 }, { "Auto-play next episode", "When an episode ends, the next one starts", NULL, 1 },
     { "Picture size", "Original, fill the screen or zoom", "Original", 0 }, { "Background trailers", "A trailer plays behind Home after a few seconds", NULL, 1 },
-    { "Cache torrents on USB", "USB drive \xc2\xb7 28 GB free. Faster seeks and less memory used", NULL, 2 } };
+    { "Cache P2P on USB", "USB drive \xc2\xb7 28 GB free. Faster seeks and less memory used", NULL, 2 } };
   float ry = py + 120;
   for (int i = 0; i < 6; i++) { float L = px + 54, Rx = px + pw - 54; int f = i == focus;
     if (f) { float pk = ok_press(), d = 6 * pk; lit_box(px + 30, ry - 4, pw - 60, 112, 20, ACC | 0xff000000u, pk); gfx_ring_out(px + 30 + d, ry - 4 + d * 0.6f, pw - 60 - 2 * d, 112 - 1.2f * d, 20, 4, acc_a(0.3f)); }
@@ -619,14 +619,14 @@ static void sc_subs(int st, float t) {
     for (int w = 0; w < 5; w++) push(2.0f + 0.72f * w, L, ORB_UP, 0.2f); }
 }
 
-/* -- 5. torrents -- */
+/* -- 5. P2P streams -- */
 static void notice(float a, const char *s) { /* the app's notice capsule out of the Settings icon, with the red key */
   if (a <= 0.004f) return; float w = text_width(s, 26, 700, 0) + 46 + 30 + 40, x = 40, y = 12; gfx_opacity_push(a);
   lglass_shell(x, y, 76 + w * a, 76, 38, RGBA(14, 12, 22, 200), 1);
   icon_draw("nav_set", x + 18, y + 18, 40, WHITE_A(255)); text_draw(s, x + 96, y + 38 - text_line_height(26) / 2.0f, 26, 700, WHITE_A(250), 0, 0, ALIGN_LEFT);
   key_hint(x + 96 + text_width(s, 26, 700, 0) + 20, y + 38, K_RED, NULL, WHITE_A(250), 0); gfx_opacity_pop();
 }
-static void sc_torrents(int st, float t) {
+static void sc_p2p(int st, float t) {
   if (st == 0) { /* the film is big, the part in memory small and moving along it */
     float L = 7.0f; t = fmodf(t, L); film(4); osd(1, NULL, T1("{n} peers", "n", "48"), 0);
     float cx = SB_W / 2, y = 330, w = 1300, x = cx - w / 2, a = eo(0.2f, 0.8f, t);
@@ -801,7 +801,7 @@ static void sc_news(float t) {
 }
 static void scene(int pv, int st, float t) {
   switch (pv) { case PV_KEYS: sc_keys(st, t); break; case PV_HOLD: sc_hold(st, t); break; case PV_STREAMS: sc_streams(st, t); break; case PV_SUBS: sc_subs(st, t); break;
-    case PV_TORRENTS: sc_torrents(st, t); break; case PV_PHONE: sc_phone(st, t); break; case PV_YOURKEYS: sc_yourkeys(st + ykOff, t); break; case PV_THANKS: sc_thanks(st, t); break; default: sc_news(t); }
+    case PV_P2P: sc_p2p(st, t); break; case PV_PHONE: sc_phone(st, t); break; case PV_YOURKEYS: sc_yourkeys(st + ykOff, t); break; case PV_THANKS: sc_thanks(st, t); break; default: sc_news(t); }
 }
 
 /* ==== the page ==== */
@@ -920,7 +920,7 @@ static float step_len(int pv, int st) {
     case PV_HOLD: return st == 0 ? 5.0f : st == 1 ? 7.0f : 6.0f;
     case PV_STREAMS: return st < 3 ? 5.0f : st == 3 ? 5.6f : 6.0f;
     case PV_SUBS: return st == 1 ? 5.0f : st == 2 ? 7.0f : 8.0f;
-    case PV_TORRENTS: return 7.0f;
+    case PV_P2P: return 7.0f;
     case PV_PHONE: return st == 2 ? 6.0f : 5.0f;
     case PV_YOURKEYS: return st == 0 ? 6.0f : 7.0f;
     case PV_NEWS: return 18.0f;

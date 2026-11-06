@@ -3,7 +3,7 @@
   "OK: try the next stream  ·  Back: close": "OK: попробовать следующий поток  ·  Назад: закрыть",
   "The TV couldn’t open the video": "Телевизор не смог открыть видео",
   "The connection to the stream dropped": "Соединение с потоком прервалось",
-  "The file isn’t in this torrent pack": "Этого файла нет в этом торрент-пакете",
+  "The file isn’t in this P2P pack": "Этого файла нет в этом P2P-пакете",
   "The stream’s server can’t find this file": "Сервер потока не может найти этот файл",
   "The stream’s server didn’t answer": "Сервер потока не ответил",
   "The stream’s server didn’t send the video": "Сервер потока не отправил видео",

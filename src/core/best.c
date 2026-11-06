@@ -3,7 +3,7 @@
    asked once (its panel, HDR / Dolby Vision, the codecs its media engine takes), the connection is measured
    once when the setting is switched on. Each stream is read from its own text: resolution, HDR, audio,
    source, size (with the running time: its bitrate), seeds. Debrid files are taken at the best quality the
-   TV and the line carry, torrents need live peers. The scoring is the web app's, number for number. */
+   TV and the line carry, P2P streams need live peers. The scoring is the web app's, number for number. */
 #include "core/best.h"
 #include "core/i18n.h"
 #include <stdio.h>
@@ -127,7 +127,7 @@ static double size_mb(const char *t) {
 }
 static int ci_eq(const char *p, const char *w) { for (; *w; p++, w++) { char c = *p >= 'A' && *p <= 'Z' ? *p + 32 : *p; if (c != *w) return 0; } return 1; }
 static int num_at(const char *p) { long v = 0; while (is_dig((unsigned char)*p) && v < 100000000) v = v * 10 + (*p++ - '0'); return (int)v; }
-/* the seeds a torrent stream announces ("👤 484", "Seeders: 12", "12 seeds"), -1 when it does not say */
+/* the seeds a P2P stream stream announces ("👤 484", "Seeders: 12", "12 seeds"), -1 when it does not say */
 static int seeds_of(const char *t) {
   for (const char *p = t; (p = strstr(p, "\xf0\x9f\x91\xa4")); p++) { const char *q = p + 4; while (*q == ' ') q++; if (is_dig((unsigned char)*q)) return num_at(q); }
   for (const char *p = t; *p; p++) {
@@ -159,8 +159,8 @@ static int other_audio(const char *l) {
 /* One stream for this TV, as one sum: the picture it gives here (capped at the panel), its source, audio and
    bitrate, minus a little for whatever needs the TV's fallback (Dolby Vision on a panel without it plays its HDR
    / SDR base, HDR is tone-mapped, a DTS / TrueHD track leans on the file's other tracks), plus how surely it
-   plays (a debrid file is there, a torrent has its seeds). Only what can't play at all is left out: cams, debrid
-   files not cached yet, torrents without peers. */
+   plays (a debrid file is there, a P2P stream has its seeds). Only what can't play at all is left out: cams, debrid
+   files not cached yet, P2P streams without peers. */
 /* the languages a stream's text names (its audio, as addons write it: words, short tags, flags), against the user's
    audio and subtitle languages from the settings: a stream in the user's language first; one naming only others (a
    Russian dub for a French viewer) last, played only when nothing else can be; none named, the original: as it was */
@@ -203,7 +203,7 @@ static int rate(const Stream *s, const TvCaps *c, double mbps, double dur, BestR
   for (size_t i = 0; i < sizeof CAM / sizeof CAM[0]; i++) if (has_word(l, CAM[i])) return 0;
   if (!p2p) { char nt[1100], raw[1100]; snprintf(raw, sizeof raw, "%s %s", s->name, s->title); lower(raw, nt, sizeof nt); /* debrid, not in the cloud yet */
     if (strstr(nt, "download]") || strstr(nt, "uncached") || strstr(nt, "needs to download") || strstr(nt, "\xe2\x8f\xb3")) return 0; }
-  int sd = p2p ? seeds_of(t) : -1; if (p2p && sd >= 0 && sd < 8) return 0; /* a torrent needs a healthy swarm: a thin one stalls */
+  int sd = p2p ? seeds_of(t) : -1; if (p2p && sd >= 0 && sd < 8) return 0; /* a P2P stream needs a healthy swarm: a thin one stalls */
   const char *rl = best_res_of(t); int r = res_n(rl), rr = r ? r : 720; char hd[32], au[32], a0[32]; best_hdr_of(t, hd, sizeof hd); best_audio_of(t, au, sizeof au);
   snprintf(a0, sizeof a0, "%s", au); { char *sp = strchr(a0, ' '); if (sp) *sp = 0; }
   if (r > (c->maxRes ? c->maxRes : 1080)) return 0; /* above the panel's resolution: the TV fails to play it */

@@ -1,8 +1,8 @@
 {
-  "USB drive found: use it for torrents?": "تم العثور على محرك USB: هل تستخدمه للتورنت؟",
-  "Cache torrents on USB": "تخزين التورنت مؤقتًا على USB",
+  "USB drive found: use it for P2P?": "تم العثور على محرك USB: هل تستخدمه لـ P2P؟",
+  "Cache P2P on USB": "تخزين P2P مؤقتًا على USB",
   "No drive": "لا يوجد محرك",
-  "Plug in a USB drive to keep torrents on it": "وصّل محرك USB لحفظ التورنت عليه",
+  "Plug in a USB drive to keep P2P data on it": "وصّل محرك USB لحفظ بيانات P2P عليه",
   "USB drive": "محرك USB",
   "{n} GB free": "{n} غيغابايت متاحة",
   "Faster seeks and less memory used": "تقديم أسرع واستهلاك أقل للذاكرة",

@@ -20,7 +20,7 @@
 #define MERGE_BYTES (256 * 1024)        /* blocks this close in one Cluster share one Range */
 #define AHEAD_S 90.0
 #define BEHIND_S 8.0
-#define P2P_AHEAD_S 120.0               /* torrents: only what playback downloads anyway... */
+#define P2P_AHEAD_S 120.0               /* P2P streams: only what playback downloads anyway... */
 #define P2P_MIN_AHEAD_S 12.0            /* ...and no further than the player has buffered (plus this), once it says */
 #define READY_AHEAD_S 20.0              /* a chosen track counts as ready once the file is read this far past the playhead */
 #define RATE 3                          /* Ranges a second in the background... */
@@ -40,7 +40,7 @@
 #define SCAN_RATE 2
 #define SCAN_MIN_BUFFER_S 15.0
 #define TIMEOUT_MS 15000
-#define P2P_CHAPTERS_MAX (64LL * 1024 * 1024) /* torrents: Chapters stored further in would fetch pieces there */
+#define P2P_CHAPTERS_MAX (64LL * 1024 * 1024) /* P2P streams: Chapters stored further in would fetch pieces there */
 
 enum { ID_EBML = 0x1A45DFA3, ID_SEGMENT = 0x18538067, ID_SEEKHEAD = 0x114D9B74, ID_SEEK = 0x4DBB, ID_SEEKID = 0x53AB, ID_SEEKPOS = 0x53AC,
   ID_INFO = 0x1549A966, ID_TSCALE = 0x2AD7B1, ID_DURATION = 0x4489, ID_TRACKS = 0x1654AE6B, ID_TRACKENTRY = 0xAE,
@@ -478,7 +478,7 @@ static int make_line(MkvSession *s, TState *t, const Block *blk, double st, doub
   if (ok) { out->s = round(out->s * 1000) / 1000; out->e = round(out->e * 1000) / 1000; }
   return ok;
 }
-/* a point read: its line kept (2), or not found in what came back (a short read, a torrent piece not there yet): read
+/* a point read: its line kept (2), or not found in what came back (a short read, a P2P stream piece not there yet): read
    again up to twice later (0) before it counts as empty (3); an empty one is never taken as covered (see track_status) */
 static void mark_done(MkvSession *s, int i, int got) { if (s->status[i] >= 2) return;
   if (!got && s->tries && s->tries[i] < 2) { s->tries[i]++; s->status[i] = 0; return; }
@@ -513,7 +513,7 @@ static void prune(MkvSession *s) {
     s->nscanned = w;
   }
 }
-/* the next pending point: the window around the playhead for every text track; then (not on torrents) the rest of the chosen one, ahead first */
+/* the next pending point: the window around the playhead for every text track; then (not on P2P streams) the rest of the chosen one, ahead first */
 static int pick(MkvSession *s, int *urgent) {
   double now = now_pos(s), lo = now - BEHIND_S, hi = now + (s->p2p ? P2P_AHEAD_S : AHEAD_S);
   if (s->p2p && s->buffered >= 0) hi = now + fmin(P2P_AHEAD_S, s->buffered + P2P_MIN_AHEAD_S); /* a piece not downloaded yet blocks the read (and pulls the engine away from the playhead) */
@@ -780,7 +780,7 @@ static void *session_main(void *arg) { plat_thread_background(5);
       for (int k = 0; k < ng; k++) if (s->status[g[k]] == 1) s->status[g[k]] = 0;
       s->fails++;
       if (e == NR_NORANGE || e == NR_HTTP) { int have = 0; for (int k = 0; k < s->nts; k++) have += s->ts[k].n; if (!have || s->fails > 6) { unlock(s); fallback(s, errname(e)); break; } }
-      int calm = e == NR_BUSY || (e == NR_TIMEOUT && !s->p2p); /* the server asks for calm: 10 s doubling to 60; else 0.5..8 s (a torrent's timeout is a piece still coming) */
+      int calm = e == NR_BUSY || (e == NR_TIMEOUT && !s->p2p); /* the server asks for calm: 10 s doubling to 60; else 0.5..8 s (a P2P stream's timeout is a piece still coming) */
       s->backoffMs = calm ? fmin(60000, fmax(10000, s->backoffMs * 2)) : fmin(8000, fmax(500, s->backoffMs * 2));
       s->backoffUntil = mono() + s->backoffMs / 1000;
     } else { s->fails = 0; s->backoffMs = 0; }

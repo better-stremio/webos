@@ -1,4 +1,4 @@
-/* The torrent engine library's interface (libsbengine, loaded on demand by p2p.c). Every call
+/* The P2P engine library's interface (libsbengine, loaded on demand by p2p.c). Every call
    returns at once; the app checks back each frame. Ids are 40-character lower-case info hashes. */
 #ifndef SB_ENGINE_H
 #define SB_ENGINE_H
@@ -17,21 +17,21 @@ typedef struct {
   const char *(*version)(void);
   /* 0 = running. windowBytes: payload kept on storage around the playhead; memCacheBytes: verified pieces in RAM;
      segmentBytes > 0: the payload as segment files of about that size, deleted as the window moves (storage that
-     cannot free bytes inside a file, FAT32), 0: each torrent's own files with holes punched */
+     cannot free bytes inside a file, FAT32), 0: each P2P stream's own files with holes punched */
   int         (*start)(const char *stateDir, const char *cacheDir, uint64_t windowBytes, uint64_t uploadBps, uint64_t memCacheBytes, uint64_t segmentBytes);
   void        (*stop)(void);
-  int         (*open)(const char *magnet, const char *ih);           /* adds the torrent once; 0 = ok */
+  int         (*open)(const char *magnet, const char *ih);           /* adds the P2P stream once; 0 = ok */
   int         (*files)(const char *ih, sbe_file *out, int max);      /* the file count, -1 metadata not ready, -2 failed (see error) */
   int         (*stream)(const char *ih, uint32_t idx, char *url, int cap); /* 1 ready (url filled), 0 preparing, -1 failed */
   const char *(*error)(const char *ih);
   int         (*stats)(sbe_stats *out);
   void        (*limits)(uint64_t downBps, uint64_t upBps);           /* 0 = unlimited */
-  void        (*remove)(const char *ih);                             /* the torrent and its payload go */
+  void        (*remove)(const char *ih);                             /* the P2P stream and its payload go */
   void        (*remove_all)(void);
   void        (*window)(uint64_t bytes);                             /* a new window size while running */
   int         (*setting)(const char *name, int value);               /* one libtorrent setting by name (int or bool); 0 = applied */
   /* the payload moves to another folder (the old one vanished with its drive, or a better one is chosen between films):
-     torrents download again there, streams keep their address; 0 = queued */
+     P2P streams download again there, streams keep their address; 0 = queued */
   int         (*relocate)(const char *cacheDir, uint64_t segmentBytes);
 } sbe_api;
 #endif

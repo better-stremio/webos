@@ -3,7 +3,7 @@
    (about 0.1 % of the file). Files without an index are scanned near the playhead, gently. One
    session per stream harvests every text track at once (muxers keep the same line in all
    languages side by side), so choosing a track shows its lines at once. Works over debrid links
-   and the torrent engine's local stream alike. Calls are for the main thread; the reading runs on
+   and the P2P engine's local stream alike. Calls are for the main thread; the reading runs on
    the session's own thread. */
 #ifndef SB_MKVSUBS_H
 #define SB_MKVSUBS_H

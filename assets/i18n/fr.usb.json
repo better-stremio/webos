@@ -1,8 +1,8 @@
 {
-  "USB drive found: use it for torrents?": "Clé USB détectée : l’utiliser pour les torrents ?",
-  "Cache torrents on USB": "Cache des torrents sur USB",
+  "USB drive found: use it for P2P?": "Clé USB détectée : l’utiliser pour le P2P ?",
+  "Cache P2P on USB": "Cache P2P sur USB",
   "No drive": "Aucune clé",
-  "Plug in a USB drive to keep torrents on it": "Branchez une clé USB pour y garder les torrents",
+  "Plug in a USB drive to keep P2P data on it": "Branchez une clé USB pour y garder les données P2P",
   "USB drive": "Clé USB",
   "{n} GB free": "{n} Go libres",
   "Faster seeks and less memory used": "Avance rapide plus fluide et moins de mémoire utilisée",

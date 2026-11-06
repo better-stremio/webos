@@ -3,7 +3,7 @@
   "OK: try the next stream  ·  Back: close": "OK: sonraki akışı dene  ·  Geri: kapat",
   "The TV couldn’t open the video": "TV videoyu açamadı",
   "The connection to the stream dropped": "Akışla bağlantı kesildi",
-  "The file isn’t in this torrent pack": "Dosya bu torrent paketinde yok",
+  "The file isn’t in this P2P pack": "Dosya bu P2P paketinde yok",
   "The stream’s server can’t find this file": "Akış sunucusu bu dosyayı bulamıyor",
   "The stream’s server didn’t answer": "Akış sunucusu yanıt vermedi",
   "The stream’s server didn’t send the video": "Akış sunucusu videoyu göndermedi",

@@ -92,7 +92,7 @@ void lib_invalidate(void);
 unsigned lib_version(void);             /* bumps on every change: boards rebuild when it moves */
 
 /* ---- streams ---- */
-/* url: what plays ("p2p://<infoHash>/<fileIdx>?tr=..." for torrents, "ytid:<id>" for YouTube); ext: an externalUrl
+/* url: what plays ("p2p://<infoHash>/<fileIdx>?tr=..." for P2P streams, "ytid:<id>" for YouTube); ext: an externalUrl
    (opened on another device, never played); hdrs / rhdrs: proxyHeaders' request and response headers ("Name: value"
    lines) sent with every request for it; binge: behaviorHints.bingeGroup; size / hash: videoSize / videoHash */
 #define SB_URL_MAX 4096 /* some addons' debrid links run past 2 KB (their whole setup sealed in the address) */

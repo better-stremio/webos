@@ -140,7 +140,7 @@ static void run_script(const char *script, int frame) {
     if (f == frame && !strncmp(c + 1, "hold", 4)) app_key(K_OK, 1, 0); }
 }
 
-/* development: SB_P2PTEST=p2p://<hash>/<idx> resolves a torrent; with SB_P2PCYCLES=N it then reads it like a player
+/* development: SB_P2PTEST=p2p://<hash>/<idx> resolves a P2P stream; with SB_P2PCYCLES=N it then reads it like a player
    (the head, the tail, a seek to 40 %, SB_P2PREADMB MB each), closes it, and does it again N times (SB_P2PIDLE=5 stops
    the engine between cycles), then quits: start/stop cycles for leak checks (leaks --atExit on the Mac) */
 static struct { int cycle, cycles; double next; volatile int readDone; char url[600]; uint64_t size; } PT;

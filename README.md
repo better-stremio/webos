@@ -8,7 +8,7 @@
 
 <p align="center">A native TV app for Stremio addons, written in C.</p>
 
-<p align="center">Better Stremio: a fork of <a href="https://github.com/stremio-origin/webos">Stremio Origin</a> (GPL-3.0) with Collections, trailers in the card and more.</p>
+<p align="center">Better Stremio: a fork of <a href="https://github.com/stremio-origin/webos">Stremio Origin</a> (GPL-3.0).</p>
 
 <p align="center"><a href="docs/brag.mp4"><img src="docs/brag.jpg" width="720" alt="Watch the Better Stremio video"></a><br><a href="docs/brag.mp4">▶ Watch the video (75 s)</a></p>
 
@@ -24,7 +24,7 @@
 - A player with episodes, sources, subtitles and audio, skip intro and recap, and a next-episode card
 - Styled subtitles as the film made them, and subtitle sync
 - DTS sound converted on the TV, and Dolby Vision on TVs that support it
-- Torrent playback with a buffer sized to your TV, and an optional USB drive
+- P2P playback with a buffer sized to your TV, and an optional USB drive
 - Cast to the TV from your phone (the Android app is almost done)
 - Library, watched state and Continue Watching synced with your Stremio account
 - 11 languages, including Arabic (right to left)
@@ -44,12 +44,12 @@ For LG TVs running webOS 3 and later (ARM). It should work on all of them, but i
 
 ## Support
 - Issues: https://github.com/better-stremio/webos/issues
-- Support: https://ko-fi.com/simussu
+- Support: https://ko-fi.com/blueee123
 
 ## Credits
 - Interface sounds: [Interface Sounds](https://kenney.nl/assets/interface-sounds) by Kenney (CC0).
 - The glass look: [liquid-glass-react](https://github.com/rdev/liquid-glass-react) by rdev; the app ships a modified version.
-- Torrents: [Nuvio Engine](https://github.com/NuvioMedia/nuvio-engine) (GPL-3.0); the app ships a modified version.
+- P2P: [Nuvio Engine](https://github.com/NuvioMedia/nuvio-engine) (GPL-3.0); the app ships a modified version.
 - Collections: the format and how sources resolve follow [NuvioTVSmart](https://github.com/NuvioMedia/NuvioTVSmart) (GPL-3.0).
 
 ## Licence

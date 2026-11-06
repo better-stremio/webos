@@ -29,13 +29,13 @@
     {
       "icon": "wn_av",
       "title": "Picture and sound",
-      "text": "Dolby Vision, DTS converted on the TV, USB for torrents."
+      "text": "Dolby Vision, DTS converted on the TV, USB for P2P."
     }
   ],
   "support": {
     "title": "Thank you",
     "message": "Thank you!",
-    "url": "https://ko-fi.com/simussu",
+    "url": "https://ko-fi.com/blueee123",
     "github": "https://github.com/better-stremio/webos"
   }
 }

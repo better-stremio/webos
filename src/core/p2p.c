@@ -51,7 +51,7 @@ static int engState; /* written by the start/stop threads: atomics below */
 static int cleaning; /* the start-up sweep of left-overs is running */
 static char engErr[128];
 static char stateDir[1024], cacheDir[1024];
-static double idleSince; /* seconds: the engine stops some minutes after the last torrent went */
+static double idleSince; /* seconds: the engine stops some minutes after the last P2P stream went */
 
 /* what the TV has, read when the engine starts, and what was chosen from it */
 enum { LOC_FLASH, LOC_RAM, LOC_DISK, LOC_USB };
@@ -69,7 +69,7 @@ static const char *loc_name(int l) { return l == LOC_FLASH ? "flash" : l == LOC_
 /* a move of the window to another place, worked out on a thread and applied by p2p_pump */
 static int relocating; static volatile int relocReady; static Prof relocTo; static double relocAt, relocLook; static unsigned relocSerial;
 
-/* the one torrent being resolved / played */
+/* the one P2P stream being resolved / played */
 static struct { int on; char ih[41], magnet[4096]; int want; uint32_t idx; uint64_t size; double t0; P2pCb cb; void *ud; char status[256]; int stage; } R;
 /* the active one, for stats, pacing and the reason line */
 static struct { char ih[41]; uint64_t size, lastBytes; double lastT, rate, dur, bps; int calm, gentle, playedOnce; double startT0, stallT0, lastWatch, lastReason, reasonLogT, lastReport; int reasonKind; char reason[200]; } A;
@@ -312,7 +312,7 @@ void p2p_resolve(const char *url, P2pCb cb, void *ud) {
   memset(&A, 0, sizeof A); A.startT0 = R.t0;
   /* p2p://<ih>/<idx>?tr=<encoded>&tr=... */
   const char *p = url + 6; int n = 0; while (n < 40 && isxdigit((unsigned char)p[n])) { R.ih[n] = (char)tolower((unsigned char)p[n]); n++; }
-  R.ih[n] = 0; if (n != 40) { R.on = 1; fail(T("Couldn’t start the torrent engine")); return; }
+  R.ih[n] = 0; if (n != 40) { R.on = 1; fail(T("Couldn’t start the P2P engine")); return; }
   p += 40; R.want = -1; if (*p == '/') { p++; if (isdigit((unsigned char)*p)) R.want = atoi(p); }
   int m = snprintf(R.magnet, sizeof R.magnet, "magnet:?xt=urn:btih:%s", R.ih);
   const char *q = strchr(url, '?');
@@ -326,7 +326,7 @@ void p2p_resolve(const char *url, P2pCb cb, void *ud) {
       if (isalnum((unsigned char)*s) || *s == '.' || *s == '-' || *s == '_') R.magnet[m++] = *s; else m += snprintf(R.magnet + m, sizeof R.magnet - m, "%%%02X", (unsigned char)*s); }
     R.magnet[m] = 0; }
   R.on = 1; R.stage = 0; R.status[0] = 0;
-  if (ensure_engine()) fail(T("Couldn’t start the torrent engine"));
+  if (ensure_engine()) fail(T("Couldn’t start the P2P engine"));
 }
 void p2p_cancel(void) { if (!R.on) return; R.on = 0; R.status[0] = 0; R.cb = NULL; if (E && ENG() == ENG_ON) E->remove(R.ih); idleSince = now_s(); }
 const char *p2p_status(void) { return R.on ? R.status : ""; }
@@ -361,7 +361,7 @@ static void window_follow(double bps) {
   A.bps = bps; PF.target = want_for(&PF, bps, A.size);
   A.lastWatch = 0; /* the watcher applies it at its next look */
 }
-/* every 2 s while a torrent is active: what is free where the window lives; the window shrinks when the room runs low
+/* every 2 s while a P2P stream is active: what is free where the window lives; the window shrinks when the room runs low
    (another app, the picture cache, the video pipeline's memory) and grows back toward what the film wants */
 static void watch_room(double t) {
   if (t - A.lastWatch < 2.0) return; A.lastWatch = t;
@@ -409,7 +409,7 @@ static int reason_now(char *o, size_t n) { /* the kind of reason (for the log), 
   double secs = now_s() - A.startT0; char r[64], v[64], pe[16];
   if (R.on && R.stage < 2) { /* no file list yet */
     char s[16]; snprintf(s, sizeof s, "%d", (int)secs);
-    if (secs >= 30) snprintf(o, n, "%s", T1("Still looking for peers… {s}s · this torrent may have few seeders", "s", s)); /* peers that never send the list are no better than none */
+    if (secs >= 30) snprintf(o, n, "%s", T1("Still looking for peers… {s}s · this P2P stream may have few peers", "s", s)); /* peers that never send the list are no better than none */
     else snprintf(o, n, "%s", st.peers ? T("Getting the file list…") : T("Finding peers…"));
     return secs >= 30 ? 2 : st.peers ? 3 : 1; }
   if (!st.peers) { snprintf(o, n, "%s", T("Finding peers…")); return 1; }
@@ -436,11 +436,11 @@ void p2p_shutdown(void) {
   usb_shutdown();
   if (!E) return;
   for (int i = 0; i < 300 && (ENG() == ENG_STARTING || ENG() == ENG_STOPPING); i++) SDL_Delay(10); /* a start or stop under way ends first (3 s at most) */
-  if (ENG() == ENG_ON) { Uint32 t0 = SDL_GetTicks(); E->remove_all(); /* no torrent state left behind */ E->stop(); rm_tree(cacheDir); rmdir(cacheDir); ENG_SET(ENG_OFF); fprintf(stderr, "[p2p] engine stopped at exit in %u ms\n", SDL_GetTicks() - t0); }
+  if (ENG() == ENG_ON) { Uint32 t0 = SDL_GetTicks(); E->remove_all(); /* no P2P stream state left behind */ E->stop(); rm_tree(cacheDir); rmdir(cacheDir); ENG_SET(ENG_OFF); fprintf(stderr, "[p2p] engine stopped at exit in %u ms\n", SDL_GetTicks() - t0); }
 }
 void p2p_player_closed(void) {
   if (R.on) p2p_cancel();
-  if (E && ENG() == ENG_ON) E->remove_all(); /* the engine deletes each torrent's payload with it */
+  if (E && ENG() == ENG_ON) E->remove_all(); /* the engine deletes each P2P stream's payload with it */
   memset(&A, 0, sizeof A); idleSince = now_s();
 }
 void p2p_pump(void) {
@@ -452,19 +452,19 @@ void p2p_pump(void) {
     if (A.ih[0]) watch_room(t); }
   watch_usb(t);
   if (!R.on) { if (E && es == ENG_ON && !A.ih[0] && idleSince > 0 && t - idleSince > idle_limit()) { ENG_SET(ENG_STOPPING); pthread_t th; if (!pthread_create(&th, NULL, engine_stop, NULL)) pthread_detach(th); else ENG_SET(ENG_ON); idleSince = 0; fprintf(stderr, "[p2p] engine stopped after %.0f idle seconds\n", idle_limit()); } return; }
-  if (es == ENG_OFF) { if (ensure_engine()) { fail(T("Couldn’t start the torrent engine")); return; } }
-  if (es == ENG_FAILED) { fprintf(stderr, "[p2p] engine failed: %s\n", engErr); ENG_SET(ENG_OFF); fail(T("Couldn’t start the torrent engine")); return; }
+  if (es == ENG_OFF) { if (ensure_engine()) { fail(T("Couldn’t start the P2P engine")); return; } }
+  if (es == ENG_FAILED) { fprintf(stderr, "[p2p] engine failed: %s\n", engErr); ENG_SET(ENG_OFF); fail(T("Couldn’t start the P2P engine")); return; }
   if (es != ENG_ON) { snprintf(R.status, sizeof R.status, "%s", p2p_wait_reason(1)); return; }
-  if (R.stage == 0 && relocating) return; /* a USB drive just switched on: the torrent starts there */
-  if (R.stage == 0) { if (E->open(R.magnet, R.ih)) { fail(T("Couldn’t start the torrent engine")); return; } R.stage = 1; }
+  if (R.stage == 0 && relocating) return; /* a USB drive just switched on: the P2P stream starts there */
+  if (R.stage == 0) { if (E->open(R.magnet, R.ih)) { fail(T("Couldn’t start the P2P engine")); return; } R.stage = 1; }
   snprintf(R.status, sizeof R.status, "%s", p2p_wait_reason(1)); /* the art's line: nothing while it is quick, then why it is slow */
   if (R.stage == 1) {
     static sbe_file files[512]; int n = E->files(R.ih, files, 512);
-    if (n == -2) { fprintf(stderr, "[p2p] %s: %s\n", R.ih, E->error(R.ih)); E->remove(R.ih); fail(T("No peers found for this torrent")); return; }
+    if (n == -2) { fprintf(stderr, "[p2p] %s: %s\n", R.ih, E->error(R.ih)); E->remove(R.ih); fail(T("No peers found for this P2P stream")); return; }
     if (n < 0) return; /* no file list yet: it keeps looking, the line says so */
     if (n > 512) n = 512;
     int idx = pick_file(files, n, R.want);
-    if (idx < 0) { fprintf(stderr, "[p2p] %s: file #%d is not a video of this torrent's %d file(s)\n", R.ih, R.want, n); E->remove(R.ih); fail(T("The file isn’t in this torrent pack")); return; }
+    if (idx < 0) { fprintf(stderr, "[p2p] %s: file #%d is not a video of this P2P stream's %d file(s)\n", R.ih, R.want, n); E->remove(R.ih); fail(T("The file isn’t in this P2P pack")); return; }
     R.idx = (uint32_t)idx; R.size = files[idx].size; R.stage = 2;
     snprintf(A.ih, sizeof A.ih, "%s", R.ih); A.size = R.size; A.lastWatch = 0;
     { double est = (double)R.size / 5400.0; if (est < 0.4 * MB) est = 0.4 * MB; if (est > 6.0 * MB) est = 6.0 * MB; window_follow(est); } /* a guess from the size (a 90-minute film) until the player knows the length */
@@ -472,7 +472,7 @@ void p2p_pump(void) {
   }
   if (R.stage == 2) {
     char url[600]; int r = E->stream(R.ih, R.idx, url, sizeof url);
-    if (r < 0) { fprintf(stderr, "[p2p] stream failed: %s\n", E->error(R.ih)); fail(T("Couldn’t start the torrent engine")); return; }
+    if (r < 0) { fprintf(stderr, "[p2p] stream failed: %s\n", E->error(R.ih)); fail(T("Couldn’t start the P2P engine")); return; }
     if (r == 0) return;
     snprintf(A.ih, sizeof A.ih, "%s", R.ih); A.size = R.size; A.calm = 0; A.gentle = 0; E->limits(0, upload_bps());
     P2pCb cb = R.cb; void *ud = R.ud; uint64_t size = R.size; R.on = 0; R.status[0] = 0;

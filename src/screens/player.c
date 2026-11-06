@@ -141,7 +141,7 @@ static struct {
        it is, dvTried started once already, dvSeen what the TV showed was checked */
     int dv, copyA, dvTried, dvSeen; double dvAt; } dts;
   int assPlain; /* styled subtitles were too slow here: plain for the rest of this film */ double lastSave; int marked; char aspect[8]; const char *res; char infoKey[256]; int pausedShown; double pausedAt;
-  /* torrents: resolved by the engine first; the file's own subtitles and chapters from the stream itself */
+  /* P2P streams: resolved by the engine first; the file's own subtitles and chapters from the stream itself */
   int isP2p, resolving; double posTick; int mkvTracksOk, chapWant;
   Nudge nudge; double nameAt;
 } P;
@@ -205,13 +205,13 @@ static void set_status(const char *t) { snprintf(status, sizeof status, "%s", t 
 static void fail(const char *t) { fprintf(stderr, "[player] %s | %s %s %s\n", t, P.type, P.id, P.vid); P.failed = 1; video_unload(); P.live = 0;
   P.canNext = P.st.url[0] && strcmp(P.type, "other") && !P.isTrailer; if (P.canNext) best_skip(P.st.url); /* OK picks the best of the others */
   char s[400]; snprintf(s, sizeof s, "%s  ·  %s", t, P.canNext ? T("OK: try the next stream  ·  Back: close") : T("Press Back to close")); set_status(s); }
-/* why a stream did not play, in words: what its server answered, the torrent's peers, then the TV's own codes
+/* why a stream did not play, in words: what its server answered, the P2P stream's peers, then the TV's own codes
    ("202 Media Not Found; 203 AV Type Not Founded") read with what the stream's text says it is */
 static int tv_code(const char *tv, int lo, int hi) { for (const char *p = tv; p && *p; p = strstr(p, "; "), p = p ? p + 2 : NULL) { int k = atoi(p); if (k >= lo && k <= hi) return 1; } return 0; }
 static const char *fail_reason(void) {
   const char *tv = video_error(); char lab[1100]; snprintf(lab, sizeof lab, "%s %s", P.sname, P.st.filename); for (char *c = lab; *c; c++) *c = (char)tolower((unsigned char)*c);
   const TvCaps *c = best_caps(); int http = !P.isP2p && !strncmp(P.url, "http", 4) && P.sizeTok;
-  fprintf(stderr, "[player] why: tv \"%s\", %s %d, peers \"%s\"\n", tv, P.isP2p ? "torrent" : "http", P.httpSt, P.p2pLine);
+  fprintf(stderr, "[player] why: tv \"%s\", %s %d, peers \"%s\"\n", tv, P.isP2p ? "P2P" : "http", P.httpSt, P.p2pLine);
   if (http && P.httpSt == 0) return T("The stream’s server didn’t answer");
   if (http && (P.httpSt == 401 || P.httpSt == 403)) return T("The stream’s server refused it: check your debrid account");
   if (http && (P.httpSt == 404 || P.httpSt == 410)) return T("The stream’s server can’t find this file");
@@ -415,7 +415,7 @@ static void load_emb_tracks(void) {
 
 /* ---- Auto-sync: the subtitle on (a downloaded one) lined up with the file's own subtitle tracks, read near the
    playhead by the Matroska reader (any language: only when lines are spoken matters). They are waited for while they
-   are being read (a torrent brings them in as its pieces arrive), up to 45 s; the matching then runs on a thread of
+   are being read (a P2P stream brings them in as its pieces arrive), up to 45 s; the matching then runs on a thread of
    its own (core/subsync). The answer applies to the lines' original times (running it again never adds up), the delay
    goes back to 0, Reset undoes it. This TV hands its sound to the screen's own decoder, so there is no audio to match
    against: a file with no text tracks (most HTTP and debrid files) is matched against another subtitle made for this
@@ -928,11 +928,11 @@ static void check_prompt(void) {
 }
 
 /* ---- next episode: played straight away from the source most like the current one (same addon, resolution, HDR,
-   audio, release group, debrid vs torrent); the art covers the switch. With no source at all: the title page's list ---- */
+   audio, release group, debrid vs P2P stream); the art covers the switch. With no source at all: the title page's list ---- */
 static char closeVid[80];
 static void play_stream(const Stream *s, const char *vid, double startAt);
 static void prepare(const char *vid, double startAt, int keepSubs);
-static int can_play(const Stream *s) { return !(s->p2p || !strncmp(s->url, "p2p://", 6)) || p2p_available(); } /* torrents need the engine library beside the app */
+static int can_play(const Stream *s) { return !(s->p2p || !strncmp(s->url, "p2p://", 6)) || p2p_available(); } /* P2P streams need the engine library beside the app */
 static void rel_group(const char *s, char *out, size_t cap) { /* "-GROUP" at the end of a word (before .mkv / .mp4 / .avi) */
   out[0] = 0; for (const char *p = s; (p = strchr(p, '-')); p++) { const char *q = p + 1; while (isalnum((unsigned char)*q)) q++; size_t n = q - p - 1; if (n < 2 || n > 12) continue;
     const char *r = q; if (*r == '.' && (!strncasecmp(r + 1, "mkv", 3) || !strncasecmp(r + 1, "mp4", 3) || !strncasecmp(r + 1, "avi", 3))) r += 4;
@@ -960,7 +960,7 @@ static int likeness(const Stream *s) {
   const char *k1 = src_kind(a), *k2 = src_kind(b); if (*k1 && !strcmp(k1, k2)) sc += 10;
   int c1 = cached_flag(a), c2 = cached_flag(b); if (c1 == c2) sc += c1 ? 15 : 5;
   int p1 = !strncmp(P.nx.url, "p2p://", 6), p2 = !strncmp(s->url, "p2p://", 6); sc += p1 == p2 ? 15 : -15;
-  char x1[48], x2[48]; info_hash(P.nx.url, x1); info_hash(s->url, x2); if (*x1 && !strcmp(x1, x2)) sc += 60; /* the same season pack: the next file of the very same torrent */
+  char x1[48], x2[48]; info_hash(P.nx.url, x1); info_hash(s->url, x2); if (*x1 && !strcmp(x1, x2)) sc += 60; /* the same season pack: the next file of the very same P2P stream */
   return sc;
 }
 static unsigned nxTok;
@@ -1538,7 +1538,7 @@ static void prepare(const char *vid, double startAt, int keepSubs) {
 static void on_p2p(void *ud, const char *url, const char *err, uint64_t size) {
   if (!P.open || P.closing || (unsigned)(uintptr_t)ud != p2pTok) return;
   P.resolving = 0;
-  if (!url) { fail(err ? err : T("No peers found for this torrent")); return; }
+  if (!url) { fail(err ? err : T("No peers found for this P2P stream")); return; }
   snprintf(P.url, sizeof P.url, "%s", url); P.isP2p = 1; set_status("");
   if (size) { P.size = (double)size; char n[16]; if (P.size >= 1e9) { snprintf(n, sizeof n, "%.*f", P.size >= 1e10 ? 0 : 1, P.size / 1e9); snprintf(P.sizeTxt, sizeof P.sizeTxt, "%s", T1("{n} GB", "n", n)); } else { snprintf(n, sizeof n, "%d", (int)(P.size / 1e6 + 0.5)); snprintf(P.sizeTxt, sizeof P.sizeTxt, "%s", T1("{n} MB", "n", n)); } }
   start_video();
@@ -1550,7 +1550,7 @@ static void on_yt(const Trailer *t, const char *err, void *ud) {
 }
 static void play_stream(const Stream *s, const char *vid, double startAt) {
   if (!s->url[0]) { if (s->ext[0]) app_open_external(s->ext, s->name); return; } /* a page to open elsewhere: never played here */
-  if (!can_play(s)) { toast(T("Couldn’t start the torrent engine"), 2500, NULL); return; }
+  if (!can_play(s)) { toast(T("Couldn’t start the P2P engine"), 2500, NULL); return; }
   prepare(vid, startAt, 1);
   if (!strcmp(P.type, "other")) { memcpy(trSubs, trNext, sizeof trSubs); trSubsN = trNextN; snprintf(P.trName, sizeof P.trName, "%.*s", (int)strcspn(s->name, "\n"), s->name); }
   else trSubsN = 0;
@@ -1558,7 +1558,7 @@ static void play_stream(const Stream *s, const char *vid, double startAt) {
   P.st = *s; snprintf(P.url, sizeof P.url, "%s", s->url); snprintf(P.alt, sizeof P.alt, "%s", nextAlt); nextAlt[0] = 0;
   if ((s->hdrs[0] || s->rhdrs[0]) && !strncmp(s->url, "http", 4)) { hproxy_url(s->url, s->hdrs, s->rhdrs, P.url, sizeof P.url); fprintf(stderr, "[player] the stream wants its own headers: through %s\n", P.url); } /* every request for it carries them */
   char info[700]; sb_stream_info(s, info, sizeof info); snprintf(P.sname, sizeof P.sname, "%s", info); snprintf(P.saddon, sizeof P.saddon, "%s", s->addon);
-  if (!P.isTrailer && strcmp(P.type, "other")) sb_remember_stream(P.id, P.vid, s); /* the torrent itself, resolved again next time */
+  if (!P.isTrailer && strcmp(P.type, "other")) sb_remember_stream(P.id, P.vid, s); /* the P2P stream itself, resolved again next time */
   if (!strncmp(P.url, "ytid:", 5)) { /* a YouTube video: found as the trailers are, behind the title art */
     P.resolving = 1; set_status(""); p2pTok++; P.ytTok = trailer_find(NULL, P.url + 5, 0, on_yt, (void *)(uintptr_t)p2pTok); return; }
   if (!strncmp(P.url, "p2p://", 6)) { /* the engine finds the peers and the file while the title art shows how it goes */
@@ -1842,8 +1842,8 @@ void player_tick(float dt) {
     if (n >= 0) { P.chapWant = 0; PlayerChapter pc[64]; for (int i = 0; i < n; i++) { snprintf(pc[i].name, sizeof pc[i].name, "%s", mc[i].name); pc[i].s = mc[i].s; pc[i].e = mc[i].e < 0 ? dur() : mc[i].e; } player_chapters(P.url, pc, n); } }
   if (P.dts.conv == 2 && !P.failed && (vs == VID_ERROR || (!video_live() && now_() - P.dts.convT0 > 25))) { dts_conv_failed(vs == VID_ERROR ? video_error() : "no picture after 25 s"); return; }
   if (P.dts.deferUntil) dts_defer_tick();
-  if (vs == VID_ERROR && !P.failed && P.started && P.isP2p && !P.p2pRetried && p2p_moved_recently()) { /* the torrent's storage moved (a USB drive pulled out): the same stream once more, same moment */
-    P.p2pRetried = 1; P.startAt = P.lastPos > 0 ? P.lastPos : 0; P.didResume = 0; P.live = 0; fprintf(stderr, "[player] stream error after the torrent storage moved: again at %.0f s\n", P.startAt); video_load(P.url); vs = video_state(); }
+  if (vs == VID_ERROR && !P.failed && P.started && P.isP2p && !P.p2pRetried && p2p_moved_recently()) { /* the P2P stream's storage moved (a USB drive pulled out): the same stream once more, same moment */
+    P.p2pRetried = 1; P.startAt = P.lastPos > 0 ? P.lastPos : 0; P.didResume = 0; P.live = 0; fprintf(stderr, "[player] stream error after the P2P stream storage moved: again at %.0f s\n", P.startAt); video_load(P.url); vs = video_state(); }
   if (vs == VID_ERROR && !P.failed && P.started) { if (P.alt[0] && !P.altTried) { P.altTried = 1; fprintf(stderr, "[player] error, the fallback URL\n"); video_load(P.alt); } else { if (!P.errAt) P.errAt = now_(); if (!P.sizeTok || P.sizeAns || now_() - P.errAt > 4) fail(fail_reason()); } } /* the first URL failed: the same file the other way; the reason waits for the server's answer (4 s at most) */
   if (P.nx.tok && !P.nx.done && now_() >= P.nx.until) nx_finish();
   if (P.metaRetryAt && now_() >= P.metaRetryAt) { P.metaRetryAt = 0; if (!P.next.has || !P.videos) ask_meta(); }
@@ -2054,7 +2054,7 @@ static void draw_osd(void) {
         gfx_opacity_pop(); }
       rx += nw[c] + 9 + 2 * 10 + 7 + 20; }
     gfx_opacity_pop(); }
-  /* top left, with the controls: a torrent's peers and speed */
+  /* top left, with the controls: a P2P stream's peers and speed */
   if (P.p2pA.v > 0.001f) { gfx_opacity_push(P.p2pA.v); static TMemo p2W; float tw = tm_width(&p2W, P.p2pLine, 24, 600, 0), w = 16 + 10 + 12 + tw + 20 + 4;
     lglass_shell(72, 52, w, 46, 23, RGBA(10, 12, 22, 150), 1); gfx_circle(72 + 2 + 16 + 5, 52 + 23, 5, RGB(0x4a, 0xde, 0x80));
     xline_draw(&stX[2], P.p2pLine, 72 + 2 + 16 + 10 + 12, 52 + (46 - text_line_height(24)) / 2, 24, WHITE_A(255), 0, ALIGN_LEFT); gfx_opacity_pop(); }
@@ -2427,7 +2427,7 @@ int player_nerd_lines(char (*out)[120], int max) {
   if (n < max) { VidTrack a[16]; int na = video_audio_tracks(a, 16); const VidTrack *c = P.curAud >= 0 && P.curAud < na ? &a[P.curAud] : NULL; char ch[16] = "";
     if (c && c->channels > 0) snprintf(ch, sizeof ch, " · %d ch", c->channels);
     snprintf(out[n++], 120, "audio  %s%s%s", c && c->codec[0] ? c->codec : "not reported yet", ch, P.dts.conv ? " · converted to AC3 here" : ""); }
-  if (n < max) snprintf(out[n++], 120, "buffer  %.0f s ahead  ·  %s", buf > 0 ? buf : 0, P.isP2p ? "torrent" : P.isHls ? "HLS" : "direct");
+  if (n < max) snprintf(out[n++], 120, "buffer  %.0f s ahead  ·  %s", buf > 0 ? buf : 0, P.isP2p ? "P2P" : P.isHls ? "HLS" : "direct");
   if (n < max && P.isP2p) { char pl[96]; if (p2p_peer_line(pl, sizeof pl)) snprintf(out[n++], 120, "p2p  %s", pl); }
   if (n < max) { double am = asssubs_render_ms(); if (asssubs_on()) snprintf(out[n++], 120, "subtitles  styled, %.0f ms a render", am); else if (P.curSub[0]) snprintf(out[n++], 120, "subtitles  plain"); }
   return n;

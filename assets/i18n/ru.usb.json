@@ -1,8 +1,8 @@
 {
-  "USB drive found: use it for torrents?": "Найден USB-накопитель: использовать для торрентов?",
-  "Cache torrents on USB": "Кэш торрентов на USB",
+  "USB drive found: use it for P2P?": "Найден USB-накопитель: использовать для P2P?",
+  "Cache P2P on USB": "Кэш P2P на USB",
   "No drive": "Нет накопителя",
-  "Plug in a USB drive to keep torrents on it": "Подключите USB-накопитель, чтобы хранить на нём торренты",
+  "Plug in a USB drive to keep P2P data on it": "Подключите USB-накопитель, чтобы хранить на нём данные P2P",
   "USB drive": "USB-накопитель",
   "{n} GB free": "Свободно {n} ГБ",
   "Faster seeks and less memory used": "Быстрая перемотка и меньше расход памяти",

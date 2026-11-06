@@ -3,7 +3,7 @@
   "OK: try the next stream  ·  Back: close": "OK : essayer le flux suivant  ·  Retour : fermer",
   "The TV couldn’t open the video": "Le téléviseur n’a pas pu ouvrir la vidéo",
   "The connection to the stream dropped": "La connexion au flux a été interrompue",
-  "The file isn’t in this torrent pack": "Le fichier n’est pas dans ce pack torrent",
+  "The file isn’t in this P2P pack": "Le fichier n’est pas dans ce pack P2P",
   "The stream’s server can’t find this file": "Le serveur du flux ne trouve pas ce fichier",
   "The stream’s server didn’t answer": "Le serveur du flux n’a pas répondu",
   "The stream’s server didn’t send the video": "Le serveur du flux n’a pas envoyé la vidéo",

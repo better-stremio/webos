@@ -1,8 +1,8 @@
 {
-  "USB drive found: use it for torrents?": "USB-schijf gevonden: gebruiken voor torrents?",
-  "Cache torrents on USB": "Torrents op USB bufferen",
+  "USB drive found: use it for P2P?": "USB-schijf gevonden: gebruiken voor P2P?",
+  "Cache P2P on USB": "P2P op USB bufferen",
   "No drive": "Geen schijf",
-  "Plug in a USB drive to keep torrents on it": "Sluit een USB-schijf aan om torrents erop te bewaren",
+  "Plug in a USB drive to keep P2P data on it": "Sluit een USB-schijf aan om P2P-gegevens erop te bewaren",
   "USB drive": "USB-schijf",
   "{n} GB free": "{n} GB vrij",
   "Faster seeks and less memory used": "Sneller spoelen en minder geheugengebruik",

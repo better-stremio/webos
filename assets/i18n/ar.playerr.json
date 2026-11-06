@@ -3,7 +3,7 @@
   "OK: try the next stream  ·  Back: close": "OK: جرّب البث التالي  ·  رجوع: إغلاق",
   "The TV couldn’t open the video": "تعذّر على التلفزيون فتح الفيديو",
   "The connection to the stream dropped": "انقطع الاتصال بالبث",
-  "The file isn’t in this torrent pack": "الملف غير موجود في حزمة التورنت هذه",
+  "The file isn’t in this P2P pack": "الملف غير موجود في حزمة P2P هذه",
   "The stream’s server can’t find this file": "خادم البث لا يستطيع العثور على هذا الملف",
   "The stream’s server didn’t answer": "لم يستجب خادم البث",
   "The stream’s server didn’t send the video": "لم يرسل خادم البث الفيديو",

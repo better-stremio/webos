@@ -3,7 +3,7 @@
   "OK: try the next stream  ·  Back: close": "OK: volgende stream proberen  ·  Terug: sluiten",
   "The TV couldn’t open the video": "De tv kon de video niet openen",
   "The connection to the stream dropped": "De verbinding met de stream is verbroken",
-  "The file isn’t in this torrent pack": "Het bestand staat niet in dit torrentpakket",
+  "The file isn’t in this P2P pack": "Het bestand staat niet in dit P2P-pakket",
   "The stream’s server can’t find this file": "De server van de stream kan dit bestand niet vinden",
   "The stream’s server didn’t answer": "De server van de stream reageerde niet",
   "The stream’s server didn’t send the video": "De server van de stream heeft de video niet verstuurd",

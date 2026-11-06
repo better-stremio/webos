@@ -139,7 +139,7 @@ static int about_opts(void) {
   set_s(&supS[n++], "nerdStats", "Stats for nerds", "Memory, storage and frame times in a corner of the screen", OO, 2, "false"); /* under it: the list scrolls to it */
   return n;
 }
-/* Cache torrents on USB: a switch for the drive there (kept per drive), greyed with "No drive" when there is none */
+/* Cache P2P streams on USB: a switch for the drive there (kept per drive), greyed with "No drive" when there is none */
 static unsigned usbSeen;
 /* Playback's rows as shown: the best stream first; the trailers' volume right under the trailers' switch while they are on, else not at all;
    Dolby Vision for Blu-ray copies only on a TV with Dolby Vision */
@@ -155,10 +155,10 @@ static void play_layout(void) {
 }
 static void usb_row(void) {
   Setting *s = &playBase[5]; UsbDrive d; usbSeen = usb_serial();
-  if (usb_drive(&d)) { char k[128], gb[16]; snprintf(k, sizeof k, "usbCache_%s", d.id); set_s(s, k, T("Cache torrents on USB"), "", OO, 2, "false"); s->raw = 1;
+  if (usb_drive(&d)) { char k[128], gb[16]; snprintf(k, sizeof k, "usbCache_%s", d.id); set_s(s, k, T("Cache P2P on USB"), "", OO, 2, "false"); s->raw = 1;
     snprintf(gb, sizeof gb, "%.*f", d.freeMb >= 10240 ? 0 : 1, d.freeMb / 1024.0);
     snprintf(s->ds, sizeof s->ds, "%s · %s. %s", d.name[0] ? d.name : T("USB drive"), T1("{n} GB free", "n", gb), T("Faster seeks and less memory used")); }
-  else { set_s(s, "__usbNone", T("Cache torrents on USB"), usb_unreachable(NULL, 0) ? T("USB drive plugged in after the app started: restart the TV to use it") : T("Plug in a USB drive to keep torrents on it"), NULL, 0, ""); s->raw = 1; s->off = 1; }
+  else { set_s(s, "__usbNone", T("Cache P2P on USB"), usb_unreachable(NULL, 0) ? T("USB drive plugged in after the app started: restart the TV to use it") : T("Plug in a USB drive to keep P2P data on it"), NULL, 0, ""); s->raw = 1; s->off = 1; }
 }
 static void caps_known(const TvCaps *c, void *ud) { (void)c; (void)ud; play_layout(); S.dirty = 1; }
 static void build(void) {

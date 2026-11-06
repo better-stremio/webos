@@ -43,7 +43,7 @@ site, pid, ver, sha, base, src = sys.argv[1:]
 short = 'Native app for Stremio addons on LG webOS TVs. Unofficial.'
 manifest = {
   'id': pid, 'version': ver, 'type': 'native', 'title': 'Stremio Origin',
-  'appDescription': 'Your own Stremio account and addons on your LG TV: artwork, trailers, the best stream in one press, subtitles, torrents, 11 languages. Unofficial.',
+  'appDescription': 'Your own Stremio account and addons on your LG TV: artwork, trailers, the best stream in one press, subtitles, P2P streams, 11 languages. Unofficial.',
   'iconUri': base + '/icon.png', 'sourceUrl': src, 'rootRequired': False,
   'ipkUrl': '%s/%s_%s_arm.ipk' % (base, pid, ver), 'ipkHash': {'sha256': sha}}
 d = os.path.join(site, 'api', 'apps', pid)
@@ -60,7 +60,7 @@ open(os.path.join(site, 'apps.json'), 'w').write(json.dumps(listing, indent=2) +
 open(os.path.join(d, 'full_description.html'), 'w').write(
   '<p><b>Stremio Origin</b>: a native app for Stremio addons on LG webOS TVs (ARM).</p>\n'
   '<p>Bring your own Stremio account and addons: the app ships empty and plays only the links your addons return. '
-  'Artwork and trailers, the best stream for your TV in one press, styled subtitles and subtitle sync, torrents, 11 languages.</p>\n'
+  'Artwork and trailers, the best stream for your TV in one press, styled subtitles and subtitle sync, P2P streams, 11 languages.</p>\n'
   '<p>Tested on webOS 4.4. Unofficial: not affiliated with Stremio.</p>\n'
   '<p>Source: <a href="%s">%s</a></p>\n' % (src, src))
 print('site updated:', pid, ver, sha)
